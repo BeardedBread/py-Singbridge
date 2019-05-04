@@ -139,10 +139,11 @@ class Table:
         #while(True):
         if self.game_state == GameState.DEALING:
             if self.discard_deck:
-                dealt_cards = random.sample(self.discard_deck, 13)
+                for i in range(10):
+                    random.shuffle(self.discard_deck)
                 for player in self.players:
-                    for card in dealt_cards:
-                        player.add_card(card)
+                    for i in range(STARTING_HAND):
+                        player.add_card(self.discard_deck.pop())
                 self.update_table.emit()
             print("Shuffle Complete!")
             self.game_state = GameState.POINT_CHECK
@@ -167,6 +168,7 @@ class Table:
             pass
         else:
             for player in self.players:
+                print(len(player.cards))
                 while not player.is_empty():
                     self.discard_deck.append(player.remove_card())
             print(len(self.discard_deck))

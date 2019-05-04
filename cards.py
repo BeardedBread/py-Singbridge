@@ -132,28 +132,29 @@ class Deck():
     def set_card_positions(self):
         number_of_cards = len(self.cards)
 
-        if number_of_cards > 0 :
+        if number_of_cards > 0:
             if self.is_horizontal():
                 total_card_length = self.cards[0].width + self.default_spacing * (number_of_cards-1)
                 if total_card_length <= self.length:
                     start_point = (self.length - total_card_length)/2
                     for (i, card) in enumerate(self.cards):
-                        card.x = start_point + self.default_spacing * (i-1)
-                        card.y = (self.width - self.cards[0].height)/ 2
+                        card.x = start_point + self.default_spacing * i
+                        card.y = (self.width - self.cards[0].height) / 2
                 else:
+                    # TODO: make sure that deck length is always longer than card width
                     adjusted_spacing = (self.length - self.cards[0].width)/(number_of_cards-1)
 
                     start_point = 0
                     for (i, card) in enumerate(self.cards):
                         card.x = start_point + adjusted_spacing * i
-                        card.y = (self.width - self.cards[0].height)/ 2
+                        card.y = (self.width - self.cards[0].height) / 2
             else:
                 total_card_length = self.cards[0].height + self.default_spacing * (number_of_cards-1)
                 if total_card_length <= self.length:
                     start_point = (self.length - total_card_length)/2
                     for (i, card) in enumerate(self.cards):
                         card.y = start_point + self.default_spacing * (i-1)
-                        card.x = (self.width - self.cards[0].width)/ 2
+                        card.x = (self.width - self.cards[0].width) / 2
                 else:
                     adjusted_spacing = (self.length - self.cards[0].height)/(number_of_cards-1)
 
@@ -175,13 +176,14 @@ class Deck():
                     self.deck_surface.blit(card.image, (card.x, card.y))
 
     def remove_card(self, pos=-1):
-        if pos < 0:
-            card = self.cards.pop()
-        else:
-            card =  self.cards.pop(pos)
-        self.set_card_positions()
-        return card
-
+        if not self.is_empty():
+            if pos < 0:
+                card = self.cards.pop()
+            else:
+                card = self.cards.pop(pos)
+            self.set_card_positions()
+            return card
+        return None
 
     def is_horizontal(self):
         return not self.vert_orientation
