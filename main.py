@@ -21,6 +21,7 @@ class GameScreen(view.PygView):
             self.screen.blit(player.deck_surface, player.get_pos())
         for playerzone in self.table.players_playzone:
             self.screen.blit(playerzone.deck_surface, playerzone.get_pos())
+        self.screen.blit(self.table.announcer, (self.table.announcer_x, self.table.announcer_y))
 
         pygame.display.flip()
 

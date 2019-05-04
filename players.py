@@ -104,8 +104,19 @@ class Table:
             self.players_playzone.append(cards.Deck(playdeckx[i], playdecky[i],
                                            w_deck, w_deck, 0))
 
+        announcer_margins = 5
+        announcer_spacing = announcer_margins + w_deck
+        self.announcer_x = playfield_x + announcer_spacing
+        self.announcer_y = playfield_y + announcer_spacing
+        announcer_width =  playfield_width - 2 * announcer_spacing
+        announcer_height =  playfield_height - 2 * announcer_spacing
+        self.announcer = pygame.Surface((announcer_width, announcer_height), pygame.SRCALPHA)
+        self.table_font = pygame.font.SysFont("None", 30)
+        self.write_message("Testing....")
 
-
+    def write_message(self, text):
+        rendered_text = self.table_font.render(text, True, (255,0,0)).convert_alpha()
+        self.announcer.blit(rendered_text, (50, 50))
 
     def get_pos(self):
         return self.x, self.y
