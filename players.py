@@ -48,6 +48,7 @@ class Table:
         self.height = height
 
         self.players = []
+        self.players_playzone = []
         self.table_status = {'played cards': [0,0,0,0], 'leading player': 0, 'trump suit': 1,
                              'trump broken': False, 'round history': [], 'bid': 0}
 
@@ -57,7 +58,7 @@ class Table:
 
         self.discard_deck = [] # This is not a deck as it will never be drawn
 
-        w_deck = min(self.height, self.width) * 0.2
+        w_deck = min(self.height, self.width) * 0.15
         l_deck = min(self.width, self.height) * 0.6
 
         playerx = ((self.width - l_deck)//2,
@@ -70,11 +71,10 @@ class Table:
                    (self.height - l_deck)//2)
 
         spacing = 20
-        offset = 0
 
         for i in range(4):
             if i == 0:
-                self.players.append(MainPlayer(playerx[i], playery[i]+offset,
+                self.players.append(MainPlayer(playerx[i], playery[i],
                                                l_deck, w_deck,
                                                spacing))
             else:
@@ -83,13 +83,37 @@ class Table:
                                            l_deck, w_deck,
                                            spacing, vert_orientation=vert,
                                            deck_reveal=cards.DeckReveal.HIDE_ALL))
+            self.players[i].connect_to_table(self.table_status)
+
+        playfield_margins = 10
+        margins_with_w_deck = w_deck + playfield_margins
+        playfield_x = margins_with_w_deck
+        playfield_y = margins_with_w_deck
+        playfield_width = self.width - (margins_with_w_deck)* 2
+        playfield_height = self.height - (margins_with_w_deck)* 2
+
+        playdeckx = (playfield_x + (playfield_width - margins_with_w_deck) // 2,
+                   playfield_x,
+                   playfield_x + (playfield_width - margins_with_w_deck) // 2,
+                   playfield_x + playfield_width - margins_with_w_deck)
+        playdecky = (playfield_y + playfield_height - margins_with_w_deck,
+                   playfield_y + (playfield_height - margins_with_w_deck) // 2,
+                   playfield_y,
+                   playfield_y + (playfield_height - margins_with_w_deck) // 2)
+        for i in range(4):
+            self.players_playzone.append(cards.Deck(playdeckx[i], playdecky[i],
+                                           w_deck, w_deck, 0))
+
+
+
 
     def get_pos(self):
         return self.x, self.y
 
+
 class Player(cards.Deck):
     """
-    A player is essentiallg a Deck with decision making function or AI component if it is a bot
+    A player is essentially a Deck with decision making function or AI component if it is a bot
     that returns a valid action for the Table/Board.
 
     The player has the knowledge of Table status in the form of a dictatary (as it is mutable, thus passed by ref)
@@ -146,11 +170,17 @@ class TestView(view.PygView):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.table = Table(0, 0, self.width, self.height, (0, 0, 255))
+        self.table.update_table.connect(self.draw_table)
+        self.draw_table()
 
-    def draw_function(self):
+    def draw_table(self, **kwargs):
+        self.screen.blit(self.background, (0, 0))
         self.screen.blit(self.table.background, self.table.get_pos())
         for player in self.table.players:
             self.screen.blit(player.deck_surface, player.get_pos())
+        for playerzone in self.table.players_playzone:
+            self.screen.blit(playerzone.deck_surface, playerzone.get_pos())
+        pygame.display.flip()
 
     def run(self):
         running = True
@@ -168,15 +198,12 @@ class TestView(view.PygView):
             milliseconds = self.clock.tick(self.fps)
             #self.playtime += milliseconds / 1000.0
 
-            self.draw_function()
-
-            pygame.display.flip()
-            self.screen.blit(self.background, (0, 0))
+            #self.draw_function()
 
         pygame.quit()
 
 
 
 if __name__ == '__main__':
-    test_view = TestView(640, 400, clear_colour=(0, 0, 0))
+    test_view = TestView(900, 600, clear_colour=(0, 0, 0))
     test_view.run()

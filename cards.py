@@ -183,19 +183,35 @@ class PlayerDeck(Deck):
          # TODO: check if card num is selected, set selected, otherwise use it (by removing)
          pass
 
+
 DATA_FOLDER = "data"
+
+
+def prepare_playing_cards(width, height):
+    try:  # try to load images from the harddisk
+        card_img = pygame.image.load(os.path.join(DATA_FOLDER, 'diamond.jpg'))
+    except:
+        raise Exception("Cannot load image")  # print error message and exit program
+
+    all_cards = []
+
+    for i in range(4):
+        for j in range(13):
+            all_cards.append(Card(0, 0, width, height, i*100 + j+1, image_data=card_img))
 
 class test_screen(view.PygView):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
         try:  # try to load images from the harddisk
             card_img = pygame.image.load(os.path.join(DATA_FOLDER, 'diamond.jpg'))
         except:
             raise Exception("Cannot load image")  # print error message and exit program
+
         self.test_card = Card(50, 0, 50, 75, 111, image_data=card_img)
         self.test_deck = Deck(100, 100, 200, 100, 25)
-        self.test_deck.add_card(Card(50, 0, 50, 75, 412, image_data=card_img))
+        self.test_deck.add_card()
         self.test_deck.add_card(Card(50, 0, 50, 75, 315, image_data=card_img))
         self.test_deck.add_card(Card(50, 0, 50, 75, 210, image_data=card_img))
         self.test_deck.add_card(Card(50, 0, 50, 75, 103, image_data=card_img))
