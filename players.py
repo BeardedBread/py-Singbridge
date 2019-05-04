@@ -57,32 +57,33 @@ class Table:
 
         self.discard_deck = [] # This is not a deck as it will never be drawn
 
-        w_deck = (0.2*self.height, 0.2*self.width)
-        l_deck = (0.5*self.width, 0.5*self.height)
+        w_deck = min(self.height, self.width) * 0.2
+        l_deck = min(self.width, self.height) * 0.6
 
-        playerx = ((self.width - l_deck[0])//2,
+        playerx = ((self.width - l_deck)//2,
                    0,
-                   (self.width - l_deck[0])//2,
-                   self.width - w_deck[0])
-        playery = (self.height - w_deck[0],
-                   (self.height - l_deck[1])//2,
+                   (self.width - l_deck)//2,
+                   self.width - w_deck)
+        playery = (self.height - w_deck,
+                   (self.height - l_deck)//2,
                    0,
-                   (self.height - l_deck[1])//2)
+                   (self.height - l_deck)//2)
 
         spacing = 20
-        offset = -50
+        offset = 0
 
-        for i in range(2):
+        for i in range(4):
             if i == 0:
                 self.players.append(MainPlayer(playerx[i], playery[i]+offset,
-                                               l_deck[i % 2], w_deck[i % 2],
+                                               l_deck, w_deck,
                                                spacing))
             else:
                 vert = i % 2 == 1
                 self.players.append(Player(playerx[i], playery[i],
-                                           l_deck[i % 2], w_deck[i % 2],
+                                           l_deck, w_deck,
                                            spacing, vert_orientation=vert,
                                            deck_reveal=cards.DeckReveal.HIDE_ALL))
+
     def get_pos(self):
         return self.x, self.y
 
