@@ -60,21 +60,31 @@ class Table:
         w_deck = (0.2*self.height, 0.2*self.width)
         l_deck = (0.5*self.width, 0.5*self.height)
 
-        playerx = (self.width//2 - l_deck[0],
+        playerx = ((self.width - l_deck[0])//2,
                    0,
-                   self.width//2 - l_deck[0],
+                   (self.width - l_deck[0])//2,
                    self.width - w_deck[0])
         playery = (self.height - w_deck[0],
-                   self.height//2 - l_deck[1],
+                   (self.height - l_deck[1])//2,
                    0,
-                   self.height//2 - l_deck[1])
+                   (self.height - l_deck[1])//2)
 
-        for i in range(4):
-            if i == 1:
-                self.players.append(MainPlayer())
+        spacing = 20
+        offset = -50
+
+        for i in range(2):
+            if i == 0:
+                self.players.append(MainPlayer(playerx[i], playery[i]+offset,
+                                               l_deck[i % 2], w_deck[i % 2],
+                                               spacing))
             else:
-                self.players.append(Player())
-
+                vert = i % 2 == 1
+                self.players.append(Player(playerx[i], playery[i],
+                                           l_deck[i % 2], w_deck[i % 2],
+                                           spacing, vert_orientation=vert,
+                                           deck_reveal=cards.DeckReveal.HIDE_ALL))
+    def get_pos(self):
+        return self.x, self.y
 
 class Player(cards.Deck):
     """
@@ -91,7 +101,7 @@ class Player(cards.Deck):
     - Play the validate move
 
     """
-    def __init__(self, ai_component=None, *args, **kwargs):
+    def __init__(self, *args, ai_component=None, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.AI = ai_component
@@ -111,7 +121,7 @@ class Player(cards.Deck):
 
 
 class MainPlayer(cards.PlayerDeck):
-    def __init__(self, ai_component=None, *args, **kwargs):
+    def __init__(self, *args, ai_component=None, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.AI = ai_component
@@ -134,9 +144,12 @@ class TestView(view.PygView):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.table = Table(0, 0, self.width, self.height, (0, 0, 255))
 
     def draw_function(self):
-        pass
+        self.screen.blit(self.table.background, self.table.get_pos())
+        for player in self.table.players:
+            self.screen.blit(player.deck_surface, player.get_pos())
 
     def run(self):
         running = True

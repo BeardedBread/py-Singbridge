@@ -2,7 +2,7 @@ import view
 import pygame
 
 
-class game_screen(view.PygView):
+class GameScreen(view.PygView):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
