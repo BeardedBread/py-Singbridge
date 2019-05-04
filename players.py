@@ -139,20 +139,39 @@ class Table:
         #while(True):
         if self.game_state == GameState.DEALING:
             if self.discard_deck:
-                random.shuffle(self.discard_deck)
-                for i in range(NUM_OF_PLAYERS):
-                    for j in range(STARTING_HAND):
-                        self.players[i].add_card(self.discard_deck.pop())
+                dealt_cards = random.sample(self.discard_deck, 13)
+                for player in self.players:
+                    for card in dealt_cards:
+                        player.add_card(card)
                 self.update_table.emit()
+            print("Shuffle Complete!")
+            self.game_state = GameState.POINT_CHECK
 
         elif self.game_state == GameState.POINT_CHECK:
-            pass
+            reshuffle = False
+            for player in self.players:
+                print(player.get_card_points())
+                if player.get_card_points() < 4:
+                    if input("Reshuffle?").lower() == 'y':
+                        reshuffle = True
+                        self.game_state = GameState.ENDING
+                        print('Reshuffle Initiated!')
+                        break
+            if not reshuffle:
+                self.game_state = GameState.ENDING
+                print('No Reshuffle needed!')
+
         elif self.game_state == GameState.BIDDING:
             pass
         elif self.game_state == GameState.PLAYING:
             pass
         else:
-            pass
+            for player in self.players:
+                while not player.is_empty():
+                    self.discard_deck.append(player.remove_card())
+            print(len(self.discard_deck))
+            self.game_state = GameState.DEALING
+            self.update_table.emit()
 
 
 class Player(cards.Deck):
@@ -190,6 +209,25 @@ class Player(cards.Deck):
 
     def check_for_valid_moves(self):
         pass
+
+    def get_card_points(self):
+        suit_points = 0
+        card_points = []
+        current_suit = 1
+        card_position = 0
+        for (i, card) in enumerate(self.cards):
+            if card.suit() != current_suit:
+                suit_points += (i-card_position) // 5
+                card_position = i
+                current_suit = card.suit()
+            card_points.append(max(0, card.number() - 10))
+        suit_points += (STARTING_HAND-card_position) // 5
+        return suit_points + sum(card_points)
+
+    def request_reshuffle(self):
+        # Players can choose NOT to reshuffle
+        # But always reshuffle for simplicity
+        return True
 
 
 class MainPlayer(cards.PlayerDeck):

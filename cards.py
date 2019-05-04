@@ -6,6 +6,7 @@ Deck is used as a Card container
 import pygame
 import view
 import os
+import random
 from enum import Enum
 
 
@@ -50,6 +51,15 @@ class Card(pygame.sprite.Sprite):
     def get_pos(self):
         return self.x, self.y
 
+    def suit(self):
+        return self.value // 100
+
+    def number(self):
+        return self.value % 100
+
+    def value_info(self):
+        return self.suit(), self.number()
+
 
 class Deck():
 
@@ -84,6 +94,7 @@ class Deck():
         self._layer = 1
 
     def add_card(self, card, position=0):
+        # TODO: Add a function to add additional cards, to optimise number of recalculations
         card.parent = self
         number_of_cards = len(self.cards)
 
@@ -120,51 +131,63 @@ class Deck():
 
     def set_card_positions(self):
         number_of_cards = len(self.cards)
-        if self.is_horizontal():
-            total_card_length = self.cards[0].width + self.default_spacing * (number_of_cards-1)
-            if total_card_length <= self.length:
-                start_point = (self.length - total_card_length)/2
-                for (i, card) in enumerate(self.cards):
-                    card.x = start_point + self.default_spacing * (i-1)
-                    card.y = (self.width - self.cards[0].height)/ 2
-            else:
-                adjusted_spacing = (self.length - self.cards[0].width)/(number_of_cards-1)
 
-                start_point = 0
-                for (i, card) in enumerate(self.cards):
-                    card.x = start_point + adjusted_spacing * i
-                    card.y = (self.width - self.cards[0].height)/ 2
-        else:
-            total_card_length = self.cards[0].height + self.default_spacing * (number_of_cards-1)
-            if total_card_length <= self.length:
-                start_point = (self.length - total_card_length)/2
-                for (i, card) in enumerate(self.cards):
-                    card.y = start_point + self.default_spacing * (i-1)
-                    card.x = (self.width - self.cards[0].width)/ 2
-            else:
-                adjusted_spacing = (self.length - self.cards[0].height)/(number_of_cards-1)
+        if number_of_cards > 0 :
+            if self.is_horizontal():
+                total_card_length = self.cards[0].width + self.default_spacing * (number_of_cards-1)
+                if total_card_length <= self.length:
+                    start_point = (self.length - total_card_length)/2
+                    for (i, card) in enumerate(self.cards):
+                        card.x = start_point + self.default_spacing * (i-1)
+                        card.y = (self.width - self.cards[0].height)/ 2
+                else:
+                    adjusted_spacing = (self.length - self.cards[0].width)/(number_of_cards-1)
 
-                start_point = 0
-                for (i, card) in enumerate(self.cards):
-                    card.y = start_point + adjusted_spacing * i
-                    card.x = (self.width - self.cards[0].width)/ 2
+                    start_point = 0
+                    for (i, card) in enumerate(self.cards):
+                        card.x = start_point + adjusted_spacing * i
+                        card.y = (self.width - self.cards[0].height)/ 2
+            else:
+                total_card_length = self.cards[0].height + self.default_spacing * (number_of_cards-1)
+                if total_card_length <= self.length:
+                    start_point = (self.length - total_card_length)/2
+                    for (i, card) in enumerate(self.cards):
+                        card.y = start_point + self.default_spacing * (i-1)
+                        card.x = (self.width - self.cards[0].width)/ 2
+                else:
+                    adjusted_spacing = (self.length - self.cards[0].height)/(number_of_cards-1)
+
+                    start_point = 0
+                    for (i, card) in enumerate(self.cards):
+                        card.y = start_point + adjusted_spacing * i
+                        card.x = (self.width - self.cards[0].width)/ 2
 
         self.update_deck_display()
 
     def update_deck_display(self):
         self.deck_surface.blit(self.background, (0, 0))
-        if self.draw_from_last:
-            for card in reversed(self.cards):
-                self.deck_surface.blit(card.image, (card.x, card.y))
-        else:
-            for card in self.cards:
-                self.deck_surface.blit(card.image, (card.x, card.y))
+        if not self.is_empty():
+            if self.draw_from_last:
+                for card in reversed(self.cards):
+                    self.deck_surface.blit(card.image, (card.x, card.y))
+            else:
+                for card in self.cards:
+                    self.deck_surface.blit(card.image, (card.x, card.y))
 
-    def remove_card(self):
-        pass
+    def remove_card(self, pos=-1):
+        if pos < 0:
+            card = self.cards.pop()
+        else:
+            card =  self.cards.pop(pos)
+        self.set_card_positions()
+        return card
+
 
     def is_horizontal(self):
         return not self.vert_orientation
+
+    def is_empty(self):
+        return len(self.cards) == 0
 
     def get_pos(self):
         return self.x, self.y
@@ -208,22 +231,21 @@ class test_screen(view.PygView):
         super().__init__(*args, **kwargs)
 
         try:  # try to load images from the harddisk
-            card_img = pygame.image.load(os.path.join(DATA_FOLDER, 'diamond.jpg'))
+            self.card_img = pygame.image.load(os.path.join(DATA_FOLDER, 'diamond.jpg'))
         except:
             raise Exception("Cannot load image")  # print error message and exit program
 
-        self.test_card = Card(50, 0, 50, 75, 111, image_data=card_img)
+        self.test_card = Card(50, 0, 50, 75, 111, image_data=self.card_img)
         self.test_deck = Deck(100, 100, 200, 100, 25)
-        self.test_deck.add_card()
-        self.test_deck.add_card(Card(50, 0, 50, 75, 315, image_data=card_img))
-        self.test_deck.add_card(Card(50, 0, 50, 75, 210, image_data=card_img))
-        self.test_deck.add_card(Card(50, 0, 50, 75, 103, image_data=card_img))
-        self.test_deck.add_card(Card(50, 0, 50, 75, 405, image_data=card_img))
-        self.test_deck.add_card(Card(50, 0, 50, 75, 112, image_data=card_img))
-        self.test_deck.add_card(Card(50, 0, 50, 75, 301, image_data=card_img))
-        self.test_deck.add_card(Card(50, 0, 50, 75, 206, image_data=card_img))
-        self.test_deck.add_card(Card(50, 0, 50, 75, 206, image_data=card_img))
-        self.test_deck.add_card(Card(50, 0, 50, 75, 206, image_data=card_img))
+        self.test_deck.add_card(Card(50, 0, 50, 75, 315, image_data=self.card_img))
+        self.test_deck.add_card(Card(50, 0, 50, 75, 210, image_data=self.card_img))
+        self.test_deck.add_card(Card(50, 0, 50, 75, 103, image_data=self.card_img))
+        self.test_deck.add_card(Card(50, 0, 50, 75, 405, image_data=self.card_img))
+        self.test_deck.add_card(Card(50, 0, 50, 75, 112, image_data=self.card_img))
+        self.test_deck.add_card(Card(50, 0, 50, 75, 301, image_data=self.card_img))
+        self.test_deck.add_card(Card(50, 0, 50, 75, 206, image_data=self.card_img))
+        self.test_deck.add_card(Card(50, 0, 50, 75, 206, image_data=self.card_img))
+        self.test_deck.add_card(Card(50, 0, 50, 75, 206, image_data=self.card_img))
 
     def draw_function(self):
         self.screen.blit(self.test_card.image, self.test_card.get_pos())
@@ -238,8 +260,14 @@ class test_screen(view.PygView):
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         running = False
-                    if event.key == pygame.K_p:
-                        print('add cards')
+                    if event.key == pygame.K_r:
+                        card = self.test_deck.remove_card()
+                        del card
+                        print('remove cards')
+
+                    if event.key == pygame.K_a:
+                        self.test_deck.add_card(Card(50, 0, 50, 75, random.randint(1, 500), image_data=self.card_img))
+                        print('remove cards')
                         pass
 
             milliseconds = self.clock.tick(self.fps)
