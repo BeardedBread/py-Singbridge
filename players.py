@@ -3,6 +3,16 @@ import cards
 import view
 from signalslot import Signal
 
+from enum import Enum
+
+
+class GameState(Enum):
+    DEALING = 0
+    POINT_CHECK = 1
+    BIDDING = 2
+    PLAYING = 3
+    ENDING = 4
+
 
 class Table:
     """
@@ -47,6 +57,7 @@ class Table:
         self.width = width
         self.height = height
 
+        self.game_state = GameState.DEALING
         self.players = []
         self.players_playzone = []
         self.table_status = {'played cards': [0,0,0,0], 'leading player': 0, 'trump suit': 1,
@@ -121,6 +132,19 @@ class Table:
     def get_pos(self):
         return self.x, self.y
 
+    def start_game(self):
+        while(True):
+            if self.game_state == GameState.DEALING:
+                pass
+            elif self.game_state == GameState.POINT_CHECK:
+                pass
+            elif self.game_state == GameState.BIDDING:
+                pass
+            elif self.game_state == GameState.PLAYING:
+                pass
+            else:
+                pass
+
 
 class Player(cards.Deck):
     """
@@ -155,6 +179,9 @@ class Player(cards.Deck):
     def view_last_round(self):
         pass
 
+    def check_for_valid_moves(self):
+        pass
+
 
 class MainPlayer(cards.PlayerDeck):
     def __init__(self, *args, ai_component=None, **kwargs):
@@ -175,6 +202,8 @@ class MainPlayer(cards.PlayerDeck):
     def view_last_round(self):
         pass
 
+    def check_for_valid_moves(self):
+        pass
 
 class TestView(view.PygView):
 
