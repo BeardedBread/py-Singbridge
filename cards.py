@@ -177,6 +177,7 @@ class Deck():
 
 
 class PlayerDeck(Deck):
+    # TODO: Maybe merge with Regular Deck
      def get_selected_card(self, pos):
          # TODO: convert pos to card num, deselect if no card is clicked or out of range
 
@@ -197,7 +198,9 @@ def prepare_playing_cards(width, height):
 
     for i in range(4):
         for j in range(13):
-            all_cards.append(Card(0, 0, width, height, i*100 + j+1, image_data=card_img))
+            all_cards.append(Card(0, 0, width, height, (i+1)*100 + j+1, image_data=card_img))
+
+    return all_cards
 
 class test_screen(view.PygView):
 

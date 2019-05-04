@@ -37,6 +37,9 @@ class GameScreen(view.PygView):
                     if event.key == pygame.K_p:
                         print('add cards')
                         pass
+                    if event.key == pygame.K_l:
+                        self.table.start_game()
+                        pass
 
             milliseconds = self.clock.tick(self.fps)
             #self.playtime += milliseconds / 1000.0

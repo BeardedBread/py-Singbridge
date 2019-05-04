@@ -1,10 +1,13 @@
 import pygame
 import cards
 import view
+import random
 from signalslot import Signal
 
 from enum import Enum
 
+NUM_OF_PLAYERS = 4
+STARTING_HAND = 13
 
 class GameState(Enum):
     DEALING = 0
@@ -67,10 +70,10 @@ class Table:
         self.background.fill(clear_colour)
         self.background = self.background.convert()
 
-        self.discard_deck = [] # This is not a deck as it will never be drawn
+        self.discard_deck = cards.prepare_playing_cards(50, 50)  # This is not a deck as it will never be drawn
 
         w_deck = min(self.height, self.width) * 0.15
-        l_deck = min(self.width, self.height) * 0.6
+        l_deck = min(self.width, self.height) * 0.7
 
         playerx = ((self.width - l_deck)//2,
                    0,
@@ -84,16 +87,16 @@ class Table:
         spacing = 20
 
         for i in range(4):
-            if i == 0:
-                self.players.append(MainPlayer(playerx[i], playery[i],
-                                               l_deck, w_deck,
-                                               spacing))
-            else:
-                vert = i % 2 == 1
-                self.players.append(Player(playerx[i], playery[i],
-                                           l_deck, w_deck,
-                                           spacing, vert_orientation=vert,
-                                           deck_reveal=cards.DeckReveal.HIDE_ALL))
+            #if i == 0:
+            #    self.players.append(MainPlayer(playerx[i], playery[i],
+            #                                   l_deck, w_deck,
+            #                                   spacing))
+            #else:
+            vert = i % 2 == 1
+            self.players.append(Player(playerx[i], playery[i],
+                                       l_deck, w_deck,
+                                       spacing, vert_orientation=vert,
+                                       deck_reveal=cards.DeckReveal.HIDE_ALL))
             self.players[i].connect_to_table(self.table_status)
 
         playfield_margins = 10
@@ -133,17 +136,23 @@ class Table:
         return self.x, self.y
 
     def start_game(self):
-        while(True):
-            if self.game_state == GameState.DEALING:
-                pass
-            elif self.game_state == GameState.POINT_CHECK:
-                pass
-            elif self.game_state == GameState.BIDDING:
-                pass
-            elif self.game_state == GameState.PLAYING:
-                pass
-            else:
-                pass
+        #while(True):
+        if self.game_state == GameState.DEALING:
+            if self.discard_deck:
+                random.shuffle(self.discard_deck)
+                for i in range(NUM_OF_PLAYERS):
+                    for j in range(STARTING_HAND):
+                        self.players[i].add_card(self.discard_deck.pop())
+                self.update_table.emit()
+
+        elif self.game_state == GameState.POINT_CHECK:
+            pass
+        elif self.game_state == GameState.BIDDING:
+            pass
+        elif self.game_state == GameState.PLAYING:
+            pass
+        else:
+            pass
 
 
 class Player(cards.Deck):
