@@ -1,0 +1,6 @@
+venv/
+data/
+test*
+math_ext.py
+.idea
+__pycache__/
