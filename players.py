@@ -2,6 +2,7 @@ import pygame
 import cards
 import view
 import random
+import copy
 from signalslot import Signal
 
 from enum import Enum
@@ -72,7 +73,7 @@ class Table:
         self.players_playzone = []
         self.table_status = {'played cards': [0, 0, 0, 0], 'leading player': 0, 'trump suit': 1,
                              'trump broken': False, 'round history': [], 'bid': 0, 'partner': 0,
-                             'partner_reveal': False, 'defender': {'target': 0, 'wins': 0},
+                             'partner reveal': False, 'defender': {'target': 0, 'wins': 0},
                              'attacker': {'target': 0, 'wins': 0}}
         self.current_round = 0
 
@@ -169,7 +170,6 @@ class Table:
             while self.current_round < 14:
                 self.play_a_round()
                 self.current_round += 1
-                pass
         else:
             self.reset_game()
             self.game_state = GameState.DEALING
@@ -213,6 +213,7 @@ class Table:
             current_player %= 4
         print("Player {0:d}".format(current_player))
         self.table_status["partner"] = self.players[current_player].make_decision(self.game_state, 1)
+        self.table_status['partner reveal'] = False
         self.table_status["trump suit"] = self.table_status["bid"] % 10
         self.table_status["trump broken"] = False
         self.table_status['played cards'] = [0, 0, 0, 0]
@@ -236,18 +237,48 @@ class Table:
                 self.players[current_player].role = PlayerRole.ATTACKER
 
     def play_a_round(self):
-        if self.current_round < 13:
-        # TODO: Starting from the leading player, make a play following the rules
-        #       Subsequent player make their plays
-        #       Once all player played, determine the winner
-        #       Clean up the cards, set the leading player, update score, repeat
+        # Starting from the leading player, make a play following the rules
+        # Subsequent player make their plays
+        # Once all player played, determine the winner
+        # Clean up the cards, set the leading player, update score, repeat
         current_player = self.table_status['leading player']
-        card = self.players[current_player].make_decision(self.game_state, 0)
-        self.table_status["played cards"][current_player] = card.value
+        leading_card = self.players[current_player].make_decision(self.game_state, 0)
+        self.table_status["played cards"][current_player] = leading_card.value
+        self.players_playzone[current_player].add_card(leading_card)
 
         for _ in range(3):
+            current_player += 1
+            current_player %= 4
             card = self.players[current_player].make_decision(self.game_state, 1)
+            self.players_playzone[current_player].add_card(card)
             self.table_status["played cards"][current_player] = card.value
+
+            if not self.table_status['partner reveal']:
+                if card.value == self.table_status['partner']
+                    self.table_status['partner reveal'] = True
+
+        card_suits = [card.suit() for card in self.table_status["played cards"]]
+        card_nums = [card.number() for card in self.table_status["played cards"]]
+        trumps = [suit==self.table_status['trump suit'] for suit in card_suits]
+        trump_played = any(trumps)
+        follow_suits = [suit==leading_card.suit() for suit in card_suits]
+        valid_nums = [card_nums[i] * (( follow_suits[i] and not trump_played) or trumps[i]) for i in range(4)]
+
+        if not self.table_status['trump broken']:
+            if trump_played:
+                self.table_status['trump broken'] = True
+
+        winning_player = valid_nums.index(max(valid_nums))
+        for deck in self.players_playzone:
+            self.discard_deck.append(deck.remove_card())
+
+        if winning_player.role == PlayerRole.DEFENDER:
+            self.table_status['defender']['wins'] += 1
+        else:
+            self.table_status['attacker']['wins'] += 1
+
+        self.table_status['leading player'] = winning_player
+        self.table_status['round history'].append(copy.copy(self.table_status["played cards"]))
 
     def reset_game(self):
         for player in self.players:
@@ -333,6 +364,7 @@ class Player(cards.Deck):
                 print("Please enter integer only")
 
     def make_a_play(self):
+        # TODO: Write the procedure of selecting a card
         return 1
 
     def view_last_round(self):
