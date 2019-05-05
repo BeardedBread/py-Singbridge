@@ -68,15 +68,18 @@ class Table:
         self.width = width
         self.height = height
 
+        # For gameplay
         self.game_state = GameState.DEALING
+        self.current_round = 0
         self.players = []
         self.players_playzone = []
+        # Table status will be made known to the player by reference
         self.table_status = {'played cards': [0, 0, 0, 0], 'leading player': 0, 'trump suit': 1,
                              'trump broken': False, 'round history': [], 'bid': 0, 'partner': 0,
                              'partner reveal': False, 'defender': {'target': 0, 'wins': 0},
                              'attacker': {'target': 0, 'wins': 0}}
-        self.current_round = 0
 
+        # Prepare the surfaces for displaying
         self.background = pygame.Surface((self.width, self.height))
         self.background.fill(clear_colour)
         self.background = self.background.convert()
@@ -140,6 +143,11 @@ class Table:
         self.write_message("Testing....")
 
     def write_message(self, text):
+        """
+        Write a message into the center board surface (announcer)
+        :param text: String to be displayed on the center board
+        :return: None
+        """
         rendered_text = self.table_font.render(text, True, (255,0,0)).convert_alpha()
         self.announcer.blit(rendered_text, (50, 50))
 
@@ -147,6 +155,11 @@ class Table:
         return self.x, self.y
 
     def start_game(self):
+        """
+        This is where the FSM is. State transition should occur here.
+        What takes place in the state should be in a function.
+        :return: None
+        """
         #while(True):
         if self.game_state == GameState.DEALING:
             self.shuffle_and_deal()
@@ -170,11 +183,16 @@ class Table:
             while self.current_round < 14:
                 self.play_a_round()
                 self.current_round += 1
+            self.game_state = GameState.ENDING
         else:
             self.reset_game()
             self.game_state = GameState.DEALING
 
     def shuffle_and_deal(self):
+        """
+        Shuffle and deal the discard deck to the players, which should have 52 cards.
+        :return: None
+        """
         if self.discard_deck:
             for i in range(10):
                 random.shuffle(self.discard_deck)
@@ -184,6 +202,10 @@ class Table:
             self.update_table.emit()
 
     def check_reshuffle(self):
+        """
+        Detect any possible reshuffle request within the players
+        :return: True if reshuffle requested, else False
+        """
         for player in self.players:
             print(player.get_card_points())
             if player.get_card_points() < 4:
@@ -191,28 +213,43 @@ class Table:
                     return True
 
     def start_bidding(self):
+        """
+        The bidding procedure.
+        :return:
+        """
+        # Randomly pick a starting player, whom also is the current bid winner
         current_player = random.randint(1, NUM_OF_PLAYERS) - 1
         print("Starting Player: {0:d}".format(current_player))
         passes = 0
-        self.table_status["bid"] = 11  # Lowest Bid: 1 Club
-        current_player += 1
-        current_player %= 4
+        self.table_status["bid"] = 11  # Lowest Bid: 1 Club by default
+
+        first_player = True  # Starting bidder "privilege" to raise the starting bid
         while passes < NUM_OF_PLAYERS - 1:
-            print("Player {0:d}".format(current_player))
+            print("Player {0:d}\n-----".format(current_player))
             print("Current Bid: {0:d}".format(self.table_status["bid"]))
+            print('Bid Leader: Player {0:d}'.format((current_player-passes-1*(not first_player))% 4))
             print("Passes: {0:d}".format(passes))
             player_bid = self.players[current_player].make_decision(self.game_state, 0)
-            if not player_bid:  # think about the format of output
-                passes += 1
+            if not player_bid:
+                if not first_player:  # Starting bidder pass do not count at the start
+                    passes += 1
             else:
                 self.table_status["bid"] = player_bid
                 passes = 0
-                if player_bid == 75:  # Highest bid: 7 NoTrump
+                if player_bid == 75:  # Highest bid: 7 NoTrump. No further check required
                     break
+
+            if first_player:
+                first_player = False
             current_player += 1
             current_player %= 4
-        print("Player {0:d}".format(current_player))
+
+        print("Player {0:d} is the bid winner!".format(current_player))
+        print("Player {0:d}\n-----".format(current_player))
+        # Ask for the partner card
         self.table_status["partner"] = self.players[current_player].make_decision(self.game_state, 1)
+
+        # Setup the table status before the play starts
         self.table_status['partner reveal'] = False
         self.table_status["trump suit"] = self.table_status["bid"] % 10
         self.table_status["trump broken"] = False
@@ -221,11 +258,10 @@ class Table:
             self.table_status["leading player"] = current_player
         else:
             self.table_status["leading player"] = current_player + 1
-        print('Bidding Complete')
-        print(self.table_status)
         self.table_status['defender']['target'] = self.table_status["bid"] // 10 + 6
         self.table_status['attacker']['target'] = 14 - self.table_status['defender']['target']
 
+        # Set the roles of the players
         self.players[current_player].role = PlayerRole.DEFENDER
         for _ in range(3):
             current_player += 1
@@ -236,16 +272,21 @@ class Table:
             else:
                 self.players[current_player].role = PlayerRole.ATTACKER
 
+        print('Bidding Complete')
+        print(self.table_status)
+
     def play_a_round(self):
-        # Starting from the leading player, make a play following the rules
-        # Subsequent player make their plays
-        # Once all player played, determine the winner
-        # Clean up the cards, set the leading player, update score, repeat
+        """
+        Ask each player to play a valid card and determine the winner of the round
+        :return: None
+        """
+        # Leading player starts with the leading card, which determines the leading suit
         current_player = self.table_status['leading player']
         leading_card = self.players[current_player].make_decision(self.game_state, 0)
         self.table_status["played cards"][current_player] = leading_card.value
         self.players_playzone[current_player].add_card(leading_card)
 
+        # Subsequent player make their plays, following suit if possible
         for _ in range(3):
             current_player += 1
             current_player %= 4
@@ -253,22 +294,26 @@ class Table:
             self.players_playzone[current_player].add_card(card)
             self.table_status["played cards"][current_player] = card.value
 
+            # Reveal the roles once the partner card is played
             if not self.table_status['partner reveal']:
-                if card.value == self.table_status['partner']
+                if card.value == self.table_status['partner']:
                     self.table_status['partner reveal'] = True
 
+        # Once all player played, find out who wins
         card_suits = [card.suit() for card in self.table_status["played cards"]]
         card_nums = [card.number() for card in self.table_status["played cards"]]
-        trumps = [suit==self.table_status['trump suit'] for suit in card_suits]
+        follow_suits = [suit == leading_card.suit() for suit in card_suits]
+        trumps = [suit == self.table_status['trump suit'] for suit in card_suits]
         trump_played = any(trumps)
-        follow_suits = [suit==leading_card.suit() for suit in card_suits]
-        valid_nums = [card_nums[i] * (( follow_suits[i] and not trump_played) or trumps[i]) for i in range(4)]
-
+        # Break trump if the trump suit is played
         if not self.table_status['trump broken']:
             if trump_played:
                 self.table_status['trump broken'] = True
-
+        # Determine which players to check for winner, and determine winner
+        valid_nums = [card_nums[i] * ((follow_suits[i] and not trump_played) or trumps[i]) for i in range(4)]
         winning_player = valid_nums.index(max(valid_nums))
+
+        # Clean up the cards, update score, set the next leading player, update round history
         for deck in self.players_playzone:
             self.discard_deck.append(deck.remove_card())
 
@@ -281,12 +326,14 @@ class Table:
         self.table_status['round history'].append(copy.copy(self.table_status["played cards"]))
 
     def reset_game(self):
+        # TODO: Reset the game
         for player in self.players:
             print(len(player.cards))
             while not player.is_empty():
                 self.discard_deck.append(player.remove_card())
         print(len(self.discard_deck))
         self.update_table.emit()
+
 
 class Player(cards.Deck):
     """
@@ -308,12 +355,19 @@ class Player(cards.Deck):
 
         self.role = PlayerRole.UNKNOWN
         self.AI = ai_component
-        self.table_status = None # This is found in Table and updated through Table
+        self._table_status = None # This is found in Table and updated through Table
 
     def connect_to_table(self, table):
-        self.table_status = table
+        self._table_status = table
 
     def make_decision(self, game_state, sub_state):
+        """
+        The player will need to make a decision depending on the game state and sub-state
+        :param game_state: Current game state
+        :param sub_state: Sub-state which affects the output for the current game state
+        :return: For Bidding: Either a bid or a partner call
+                 For Playing: A Card
+        """
         if game_state == GameState.BIDDING:
             if sub_state == 0:
                 return self.make_a_bid()
@@ -321,6 +375,10 @@ class Player(cards.Deck):
                 return self.call_partner()
 
     def make_a_bid(self):
+        """
+        The procedure to make a bid
+        :return: A valid bid number
+        """
         while True:
             bid = input("Please input a bid in the format 'number' + 'suit' \n"
                         "To pass, enter nothing. \n"
@@ -333,7 +391,7 @@ class Player(cards.Deck):
                 bid = int(bid)
             except ValueError:
                 print("Please enter integer only")
-            if self.table_status["bid"] < bid and self.bid_check(bid):
+            if self._table_status["bid"] < bid and self.bid_check(bid):
                 return bid
             else:
                 if bid > 75:
@@ -348,6 +406,10 @@ class Player(cards.Deck):
         return rounds <= 5 and 1 <= suit <= 5
 
     def call_partner(self):
+        """
+        The procedure to call a partner
+        :return: A valid card value
+        """
         current_card_values = self.get_deck_values()
         while True:
             partner = input("Please call your partner card. Enter suit number + card number\n"
@@ -364,6 +426,10 @@ class Player(cards.Deck):
                 print("Please enter integer only")
 
     def make_a_play(self):
+        """
+        The procedure to make a play in a round
+        :return: A valid Card
+        """
         # TODO: Write the procedure of selecting a card
         return 1
 
