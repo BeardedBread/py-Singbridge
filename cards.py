@@ -54,10 +54,10 @@ class Card(pygame.sprite.Sprite):
         return self.x, self.y
 
     def suit(self):
-        return self.value // 100
+        return get_card_suit(self.value)
 
     def number(self):
-        return self.value % 100
+        return get_card_number(self.value)
 
     def value_info(self):
         return self.suit(), self.number()
@@ -202,6 +202,11 @@ class Deck():
             values.append(card.value)
         return values
 
+    def check_card_in(self):
+    # TODO: Write a function to check if card is in the deck
+    #       and return bool with position of card
+        pass
+
 
 class PlayerDeck(Deck):
     # TODO: Maybe merge with Regular Deck
@@ -232,9 +237,22 @@ def prepare_playing_cards(width, height):
 
     for i in range(4):
         for j in range(13):
-            all_cards.append(Card(0, 0, width, height, (i+1)*100 + j+1, image_data=card_img))
+            all_cards.append(Card(0, 0, width, height, (i+1)*100 + j+2, image_data=card_img))
 
     return all_cards
+
+
+def card_check(value):
+    return 1 <= get_card_suit(value) <= 4 \
+           and 2 <= get_card_number(value) <= 14
+
+
+def get_card_suit(value):
+    return value // 100
+
+
+def get_card_number(value):
+    return value % 100
 
 class test_screen(view.PygView):
 

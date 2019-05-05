@@ -8,6 +8,9 @@ from enum import Enum
 
 NUM_OF_PLAYERS = 4
 STARTING_HAND = 13
+HIGHEST_CARD = 414
+LOWEST_CARD = 102
+
 
 class GameState(Enum):
     DEALING = 0
@@ -16,6 +19,10 @@ class GameState(Enum):
     PLAYING = 3
     ENDING = 4
 
+class PlayerRole(Enum):
+    UNKNOWN = 0
+    ATTACKER = 1
+    DEFENDER = 2
 
 class Table:
     """
@@ -63,8 +70,12 @@ class Table:
         self.game_state = GameState.DEALING
         self.players = []
         self.players_playzone = []
-        self.table_status = {'played cards': [0,0,0,0], 'leading player': 0, 'trump suit': 1,
-                             'trump broken': False, 'round history': [], 'bid': 0, 'partner': 0}
+        self.table_status = {'played cards': [0, 0, 0, 0], 'leading player': 0, 'trump suit': 1,
+                             'trump broken': False, 'round history': [], 'bid': 0, 'partner': 0,
+                             'partner_reveal': False}
+        self.team_status = {'defender': {'target': 0, 'wins': 0},
+                            'attacker': {'target': 0, 'wins': 0}}
+        self.current_round = 0
 
         self.background = pygame.Surface((self.width, self.height))
         self.background.fill(clear_colour)
@@ -138,76 +149,92 @@ class Table:
     def start_game(self):
         #while(True):
         if self.game_state == GameState.DEALING:
-            if self.discard_deck:
-                for i in range(10):
-                    random.shuffle(self.discard_deck)
-                for player in self.players:
-                    for i in range(STARTING_HAND):
-                        player.add_card(self.discard_deck.pop())
-                self.update_table.emit()
+            self.shuffle_and_deal()
             print("Shuffle Complete!")
             self.game_state = GameState.POINT_CHECK
 
         elif self.game_state == GameState.POINT_CHECK:
-            reshuffle = False
-            for player in self.players:
-                print(player.get_card_points())
-                if player.get_card_points() < 4:
-                    if input("Reshuffle?").lower() == 'y':
-                        reshuffle = True
-                        self.game_state = GameState.ENDING
-                        print('Reshuffle Initiated!')
-                        break
-            if not reshuffle:
-                self.game_state = GameState.BIDDING
+            if self.check_reshuffle():
+                print('Reshuffle Initiated!')
+                self.game_state = GameState.ENDING
+            else:
                 print('No Reshuffle needed!')
+                self.game_state = GameState.BIDDING
 
         elif self.game_state == GameState.BIDDING:
             print("Start to Bid")
-            current_player = random.randint(1, NUM_OF_PLAYERS) - 1
-            print("Starting Player: {0:d}".format(current_player))
-            passes = 0
-            self.table_status["bid"] = 11 # Lowest Bid: 1 Club
-            current_player += 1
-            current_player %= 4
-            while passes< NUM_OF_PLAYERS - 1:
-                print("Player {0:d}".format(current_player))
-                print("Current Bid: {0:d}".format(self.table_status["bid"]))
-                print("Passes: {0:d}".format(passes))
-                player_bid = self.players[current_player].make_decision(self.game_state, 0)
-                if not player_bid: # think about the format of output
-                    passes += 1
-                else:
-                    self.table_status["bid"] = player_bid
-                    if player_bid == 75: # Highest bid: 7 NoTrump
-                        passes = 0
-                current_player += 1
-                current_player %= 4
-            print("Player {0:d}".format(current_player))
-            # TODO: check for valid card call, maybe a function in player?
-            self.table_status["partner"] = self.players[current_player].make_decision(self.game_state, 1)
-            self.table_status["trump suit"] = self.table_status["bid"] % 10
-            self.table_status["trump broken"] = False
-            self.table_status['played cards'] = [0, 0, 0, 0]
-            if self.table_status['trump suit'] == 5:
-                self.table_status["leading player"] = current_player
-            else:
-                self.table_status["leading player"] = current_player + 1
-            print('Bidding Complete')
-            print(self.table_status)
+            self.start_bidding()
             self.game_state = GameState.ENDING
 
         elif self.game_state == GameState.PLAYING:
             pass
         else:
-            for player in self.players:
-                print(len(player.cards))
-                while not player.is_empty():
-                    self.discard_deck.append(player.remove_card())
-            print(len(self.discard_deck))
+            self.reset_game()
             self.game_state = GameState.DEALING
+
+    def shuffle_and_deal(self):
+        if self.discard_deck:
+            for i in range(10):
+                random.shuffle(self.discard_deck)
+            for player in self.players:
+                for i in range(STARTING_HAND):
+                    player.add_card(self.discard_deck.pop())
             self.update_table.emit()
 
+    def check_reshuffle(self):
+        for player in self.players:
+            print(player.get_card_points())
+            if player.get_card_points() < 4:
+                if input("Reshuffle?").lower() == 'y':
+                    return True
+
+    def start_bidding(self):
+        current_player = random.randint(1, NUM_OF_PLAYERS) - 1
+        print("Starting Player: {0:d}".format(current_player))
+        passes = 0
+        self.table_status["bid"] = 11  # Lowest Bid: 1 Club
+        current_player += 1
+        current_player %= 4
+        while passes < NUM_OF_PLAYERS - 1:
+            print("Player {0:d}".format(current_player))
+            print("Current Bid: {0:d}".format(self.table_status["bid"]))
+            print("Passes: {0:d}".format(passes))
+            player_bid = self.players[current_player].make_decision(self.game_state, 0)
+            if not player_bid:  # think about the format of output
+                passes += 1
+            else:
+                self.table_status["bid"] = player_bid
+                passes = 0
+                if player_bid == 75:  # Highest bid: 7 NoTrump
+                    break
+            current_player += 1
+            current_player %= 4
+        print("Player {0:d}".format(current_player))
+        self.table_status["partner"] = self.players[current_player].make_decision(self.game_state, 1)
+        self.table_status["trump suit"] = self.table_status["bid"] % 10
+        self.table_status["trump broken"] = False
+        self.table_status['played cards'] = [0, 0, 0, 0]
+        if self.table_status['trump suit'] == 5:
+            self.table_status["leading player"] = current_player
+        else:
+            self.table_status["leading player"] = current_player + 1
+        print('Bidding Complete')
+        print(self.table_status)
+        self.team_status['defender']['target'] = self.table_status["bid"] // 10 + 6
+        self.team_status['attacker']['target'] = 14 - self.team_status['defender']['target']
+
+        # TODO: Check who has the partner card and assign the role
+
+    def play_a_round(self):
+        pass
+
+    def reset_game(self):
+        for player in self.players:
+            print(len(player.cards))
+            while not player.is_empty():
+                self.discard_deck.append(player.remove_card())
+        print(len(self.discard_deck))
+        self.update_table.emit()
 
 class Player(cards.Deck):
     """
@@ -227,6 +254,7 @@ class Player(cards.Deck):
     def __init__(self, *args, ai_component=None, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self.role = PlayerRole.UNKNOWN
         self.AI = ai_component
         self.table_status = None # This is found in Table and updated through Table
 
@@ -243,9 +271,9 @@ class Player(cards.Deck):
     def make_a_bid(self):
         while True:
             bid = input("Please input a bid in the format 'number' + 'suit' \n"
-                            " To pass, enter nothing. \n"
-                            "i.e. 42 is 4 Diamond, 65 is 6 No Trump \n "
-                                "Suit Number: 1-Club 2-Diamond 3-Hearts 4-Spades 5-NoTrump\n")
+                        " To pass, enter nothing. \n"
+                        "i.e. 42 is 4 Diamond, 65 is 6 No Trump \n "
+                        "Suit Number: 1-Club 2-Diamond 3-Hearts 4-Spades 5-NoTrump\n")
 
             if not bid:
                 return 0
@@ -253,25 +281,35 @@ class Player(cards.Deck):
                 bid = int(bid)
             except ValueError:
                 print("Please enter integer only")
-            if self.table_status["bid"] < bid <= 75:
+            if self.table_status["bid"] < bid and self.bid_check(bid):
                 return bid
             else:
                 if bid > 75:
                     print("You cannot bid beyond 7 No Trump")
                 else:
-                    print("The bid is lower than the current bid. Please bid higher or pass.")
+                    print("Invalid bid")
 
+    @staticmethod
+    def bid_check(value):
+        rounds = value // 10
+        suit = value % 10
+        return rounds <= 5 and 1 <= suit <= 5
 
     def call_partner(self):
         current_card_values = self.get_deck_values()
         while True:
             partner = input("Please call your partner card. Enter suit number + card number\n"
                             "i.e 412 is Spade Queen, 108 is Clubs 8, 314 is Hearts Ace\n")
-            # TODO: Input scrubbing please
-            if partner in current_card_values:
-                print("Please call a card outside of your hand")
-            else:
-                return partner
+            try:
+                partner = int(partner)
+                if partner in current_card_values:
+                    print("Please call a card outside of your hand")
+                elif cards.card_check(partner):
+                    return partner
+                else:
+                    print("Invalid card call")
+            except ValueError:
+                print("Please enter integer only")
 
     def make_a_play(self):
         pass
