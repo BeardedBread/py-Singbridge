@@ -202,10 +202,11 @@ class Deck():
             values.append(card.value)
         return values
 
-    def check_card_in(self):
-    # TODO: Write a function to check if card is in the deck
-    #       and return bool with position of card
-        pass
+    def check_card_in(self, value):
+        card_values = self.get_deck_values()
+        if value in card_values:
+            return True, card_values.index(value)
+        return False, -1
 
 
 class PlayerDeck(Deck):

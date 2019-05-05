@@ -72,9 +72,8 @@ class Table:
         self.players_playzone = []
         self.table_status = {'played cards': [0, 0, 0, 0], 'leading player': 0, 'trump suit': 1,
                              'trump broken': False, 'round history': [], 'bid': 0, 'partner': 0,
-                             'partner_reveal': False}
-        self.team_status = {'defender': {'target': 0, 'wins': 0},
-                            'attacker': {'target': 0, 'wins': 0}}
+                             'partner_reveal': False, 'defender': {'target': 0, 'wins': 0},
+                             'attacker': {'target': 0, 'wins': 0}}
         self.current_round = 0
 
         self.background = pygame.Surface((self.width, self.height))
@@ -167,7 +166,10 @@ class Table:
             self.game_state = GameState.ENDING
 
         elif self.game_state == GameState.PLAYING:
-            pass
+            while self.current_round < 14:
+                self.play_a_round()
+                self.current_round += 1
+                pass
         else:
             self.reset_game()
             self.game_state = GameState.DEALING
@@ -220,13 +222,32 @@ class Table:
             self.table_status["leading player"] = current_player + 1
         print('Bidding Complete')
         print(self.table_status)
-        self.team_status['defender']['target'] = self.table_status["bid"] // 10 + 6
-        self.team_status['attacker']['target'] = 14 - self.team_status['defender']['target']
+        self.table_status['defender']['target'] = self.table_status["bid"] // 10 + 6
+        self.table_status['attacker']['target'] = 14 - self.table_status['defender']['target']
 
-        # TODO: Check who has the partner card and assign the role
+        self.players[current_player].role = PlayerRole.DEFENDER
+        for _ in range(3):
+            current_player += 1
+            current_player %= 4
+            is_partner, _ = self.players[current_player].check_card_in(self.table_status["partner"])
+            if is_partner:
+                self.players[current_player].role = PlayerRole.DEFENDER
+            else:
+                self.players[current_player].role = PlayerRole.ATTACKER
 
     def play_a_round(self):
-        pass
+        if self.current_round < 13:
+        # TODO: Starting from the leading player, make a play following the rules
+        #       Subsequent player make their plays
+        #       Once all player played, determine the winner
+        #       Clean up the cards, set the leading player, update score, repeat
+        current_player = self.table_status['leading player']
+        card = self.players[current_player].make_decision(self.game_state, 0)
+        self.table_status["played cards"][current_player] = card.value
+
+        for _ in range(3):
+            card = self.players[current_player].make_decision(self.game_state, 1)
+            self.table_status["played cards"][current_player] = card.value
 
     def reset_game(self):
         for player in self.players:
@@ -271,8 +292,8 @@ class Player(cards.Deck):
     def make_a_bid(self):
         while True:
             bid = input("Please input a bid in the format 'number' + 'suit' \n"
-                        " To pass, enter nothing. \n"
-                        "i.e. 42 is 4 Diamond, 65 is 6 No Trump \n "
+                        "To pass, enter nothing. \n"
+                        "i.e. 42 is 4 Diamond, 65 is 6 No Trump \n"
                         "Suit Number: 1-Club 2-Diamond 3-Hearts 4-Spades 5-NoTrump\n")
 
             if not bid:
@@ -312,7 +333,7 @@ class Player(cards.Deck):
                 print("Please enter integer only")
 
     def make_a_play(self):
-        pass
+        return 1
 
     def view_last_round(self):
         pass
