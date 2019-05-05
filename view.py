@@ -21,6 +21,6 @@ class PygView(object):
         self.font = pygame.font.SysFont('mono', 20, bold=True)
 
     def run(self):
-        """The mainloop
+        """The mainloop, requires reimplementation
         """
         pass

@@ -9,6 +9,8 @@ import os
 import random
 from enum import Enum
 
+# Consider doing Enums for Card Suits?
+
 
 class DeckReveal(Enum):
     SHOW_ALL = 1
@@ -194,11 +196,11 @@ class Deck():
     def get_pos(self):
         return self.x, self.y
 
-    def print_deck_values(self):
-        values = ""
+    def get_deck_values(self):
+        values = []
         for card in self.cards:
-            values = values + str(card.value) + ' '
-        print(values)
+            values.append(card.value)
+        return values
 
 
 class PlayerDeck(Deck):
@@ -214,6 +216,13 @@ DATA_FOLDER = "data"
 
 
 def prepare_playing_cards(width, height):
+    """
+    Create the 52 playing cards. Should be called only once.
+    :param int width: Card width
+    :param int height: Card Height
+    :return: The list of 52 Cards
+    :rtype: List of <Cards>
+    """
     try:  # try to load images from the harddisk
         card_img = pygame.image.load(os.path.join(DATA_FOLDER, 'diamond.jpg'))
     except:
@@ -233,7 +242,8 @@ class test_screen(view.PygView):
         super().__init__(*args, **kwargs)
 
         try:  # try to load images from the harddisk
-            self.card_img = pygame.image.load(os.path.join(DATA_FOLDER, 'diamond.jpg'))
+            data_path = os.path.join(DATA_FOLDER, 'diamond.jpg')
+            self.card_img = pygame.image.load(data_path)
         except:
             raise Exception("Cannot load image")  # print error message and exit program
 
