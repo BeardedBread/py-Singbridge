@@ -206,11 +206,12 @@ class Table:
         Detect any possible reshuffle request within the players
         :return: True if reshuffle requested, else False
         """
-        for player in self.players:
-            print(player.get_card_points())
+        print("Player Point Count")
+        for i, player in enumerate(self.players):
+            print("Player {0:d}: {1:d}".format(i, player.get_card_points()))
             if player.get_card_points() < 4:
-                if input("Reshuffle?").lower() == 'y':
-                    return True
+                print("Starting Player: {0:d}".format(i))
+                return player.make_decision(self.game_state, 0)
 
     def start_bidding(self):
         """
@@ -368,6 +369,9 @@ class Player(cards.Deck):
         :return: For Bidding: Either a bid or a partner call
                  For Playing: A Card
         """
+        if game_state == GameState.POINT_CHECK:
+            if input("Low points hand detected! Reshuffle?").lower() == 'y':
+                return True
         if game_state == GameState.BIDDING:
             if sub_state == 0:
                 return self.make_a_bid()
