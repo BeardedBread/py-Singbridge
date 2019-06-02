@@ -3,6 +3,7 @@ import cards
 import view
 import random
 import copy
+import time
 from signalslot import Signal
 
 from enum import Enum
@@ -154,7 +155,7 @@ class Table:
     def get_pos(self):
         return self.x, self.y
 
-    def start_game(self):
+    def continue_game(self):
         """
         This is where the FSM is. State transition should occur here.
         What takes place in the state should be in a function.
@@ -177,12 +178,13 @@ class Table:
         elif self.game_state == GameState.BIDDING:
             print("Start to Bid")
             self.start_bidding()
-            self.game_state = GameState.ENDING
+            self.game_state = GameState.PLAYING
 
         elif self.game_state == GameState.PLAYING:
-            while self.current_round < 14:
+            while self.current_round < 13:
                 self.play_a_round()
                 self.current_round += 1
+            print("Game Set")
             self.game_state = GameState.ENDING
         else:
             self.reset_game()
@@ -258,7 +260,7 @@ class Table:
         if self.table_status['trump suit'] == 5:
             self.table_status["leading player"] = current_player
         else:
-            self.table_status["leading player"] = current_player + 1
+            self.table_status["leading player"] = (current_player +1) % 4
         self.table_status['defender']['target'] = self.table_status["bid"] // 10 + 6
         self.table_status['attacker']['target'] = 14 - self.table_status['defender']['target']
 
@@ -283,23 +285,34 @@ class Table:
         """
         # Leading player starts with the leading card, which determines the leading suit
         current_player = self.table_status['leading player']
-        leading_card = self.players[current_player].make_decision(self.game_state, 0)
-        self.table_status["played cards"][current_player] = leading_card.value
-        self.players_playzone[current_player].add_card(leading_card)
 
+        print("Player {0:d}\n".format(current_player))
+        leading_card = self.players[current_player].make_decision(self.game_state, 0)
+        self.table_status["played cards"][current_player] = leading_card
+        self.players_playzone[current_player].add_card(leading_card)
+        self.update_table.emit()
+        if not self.table_status['partner reveal']:
+            if leading_card.value == self.table_status['partner']:
+                self.table_status['partner reveal'] = True
+                print("Partner Revealed!")
         # Subsequent player make their plays, following suit if possible
         for _ in range(3):
             current_player += 1
             current_player %= 4
+            print("Player {0:d}\n".format(current_player))
             card = self.players[current_player].make_decision(self.game_state, 1)
             self.players_playzone[current_player].add_card(card)
-            self.table_status["played cards"][current_player] = card.value
+            self.table_status["played cards"][current_player] = card
 
             # Reveal the roles once the partner card is played
             if not self.table_status['partner reveal']:
                 if card.value == self.table_status['partner']:
                     self.table_status['partner reveal'] = True
+                    print("Partner Revealed!")
+            self.update_table.emit()
 
+        time.sleep(1)
+        #print(self.table_status["played cards"])
         # Once all player played, find out who wins
         card_suits = [card.suit() for card in self.table_status["played cards"]]
         card_nums = [card.number() for card in self.table_status["played cards"]]
@@ -313,18 +326,21 @@ class Table:
         # Determine which players to check for winner, and determine winner
         valid_nums = [card_nums[i] * ((follow_suits[i] and not trump_played) or trumps[i]) for i in range(4)]
         winning_player = valid_nums.index(max(valid_nums))
-
+        print("Player {0:d} wins!\n".format(winning_player))
         # Clean up the cards, update score, set the next leading player, update round history
         for deck in self.players_playzone:
             self.discard_deck.append(deck.remove_card())
 
-        if winning_player.role == PlayerRole.DEFENDER:
+        if self.players[winning_player].role == PlayerRole.DEFENDER:
             self.table_status['defender']['wins'] += 1
         else:
             self.table_status['attacker']['wins'] += 1
 
         self.table_status['leading player'] = winning_player
         self.table_status['round history'].append(copy.copy(self.table_status["played cards"]))
+        print("Defender:{0:d}, Attacker:{1:d}\n".format(self.table_status['defender']['wins'],
+                                                        self.table_status['attacker']['wins']))
+        self.update_table.emit()
 
     def reset_game(self):
         # TODO: Reset the game
@@ -377,6 +393,8 @@ class Player(cards.Deck):
                 return self.make_a_bid()
             else:
                 return self.call_partner()
+        if game_state == GameState.PLAYING:
+            return self.make_a_play(sub_state)
 
     def make_a_bid(self):
         """
@@ -429,19 +447,47 @@ class Player(cards.Deck):
             except ValueError:
                 print("Please enter integer only")
 
-    def make_a_play(self):
+    def make_a_play(self, substate):
         """
         The procedure to make a play in a round
         :return: A valid Card
         """
-        # TODO: Write the procedure of selecting a card
-        return 1
+        while True:
+            play = input("Please play a card. Enter suit number + card number\n"
+                            "i.e 412 is Spade Queen, 108 is Clubs 8, 314 is Hearts Ace\n")
+            if play:
+                play = int(play)
+                if substate == 0:
+                    valid = self.check_for_valid_plays(play, True)
+                else:
+                    valid = self.check_for_valid_plays(play, False)
+
+                if valid:
+                    [_, pos] = self.check_card_in(play)
+                    return self.remove_card(pos)
+
+            print("Invalid play")
 
     def view_last_round(self):
         pass
 
-    def check_for_valid_plays(self):
-        pass
+    def check_for_valid_plays(self, card, leading):
+        if not self.check_card_in(card):
+            return False
+        card_suit = cards.get_card_suit(card)
+        if leading:
+            if not self._table_status['trump broken'] and \
+                    card_suit == self._table_status['trump suit']:
+                if any([not cards.get_card_suit(crd) == self._table_status['trump suit'] for crd in self.get_deck_values()]):
+                    return False
+        else:
+            leading_card_suit = self._table_status['played cards'][self._table_status["leading player"]].suit()
+            if not card_suit == leading_card_suit and \
+                any([cards.get_card_suit(crd) == leading_card_suit for crd in
+                    self.get_deck_values()]):
+                return False
+
+        return True
 
     def get_card_points(self):
         suit_points = 0
