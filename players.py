@@ -4,6 +4,7 @@ import view
 import random
 import copy
 import time
+import pprint
 from signalslot import Signal
 from ai_comp import ai
 from enum import Enum
@@ -113,8 +114,10 @@ class Table:
                                        spacing, vert_orientation=vert,
                                        deck_reveal=cards.DeckReveal.HIDE_ALL))
             self.players[i].connect_to_table(self.table_status)
+            if i>0:
+                self.players[i].add_ai(ai.RandomAI(self.table_status))
 
-        self.players[3].add_ai(ai.RandomAI(self.table_status))
+
 
         playfield_margins = 10
         margins_with_w_deck = w_deck + playfield_margins
@@ -192,6 +195,7 @@ class Table:
             self.game_state = GameState.ENDING
         else:
             self.reset_game()
+            self.current_round = 0
             self.game_state = GameState.DEALING
 
     def shuffle_and_deal(self):
@@ -280,7 +284,6 @@ class Table:
                 self.players[current_player].role = PlayerRole.ATTACKER
 
         print('Bidding Complete')
-        print(self.table_status)
 
     def play_a_round(self):
         """
@@ -479,7 +482,9 @@ class Player(cards.Deck):
             # TODO: Make a more natural input parsing
             play = input("Please play a card. Enter suit number + card number\n"
                             "i.e 412 is Spade Queen, 108 is Clubs 8, 314 is Hearts Ace\n")
-            if play:
+            if play == "v":
+                pprint.pprint(self._table_status)
+            else:
                 play = int(play)
                 if substate == 0:
                     valid = self.check_for_valid_plays(play, True)
@@ -490,7 +495,7 @@ class Player(cards.Deck):
                     [_, pos] = self.check_card_in(play)
                     return self.remove_card(pos)
 
-            print("Invalid play")
+                print("Invalid play")
 
     def view_last_round(self):
         pass
