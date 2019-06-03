@@ -114,7 +114,7 @@ class Table:
                                        deck_reveal=cards.DeckReveal.HIDE_ALL))
             self.players[i].connect_to_table(self.table_status)
 
-        self.players[3].add_ai(ai.randomAI(self.table_status))
+        self.players[3].add_ai(ai.RandomAI(self.table_status))
 
         playfield_margins = 10
         margins_with_w_deck = w_deck + playfield_margins
@@ -151,8 +151,10 @@ class Table:
         :param text: String to be displayed on the center board
         :return: None
         """
+        # TODO: Write procedure to update the announcer text
         rendered_text = self.table_font.render(text, True, (255,0,0)).convert_alpha()
         self.announcer.blit(rendered_text, (50, 50))
+        self.update_table.emit()
 
     def get_pos(self):
         return self.x, self.y
@@ -405,12 +407,14 @@ class Player(cards.Deck):
                     return self.AI.make_a_bid()
                 return self.make_a_bid()
             else:
-                #if self.AI:
-                #    pass
+                if self.AI:
+                    return self.AI.call_partner()
                 return self.call_partner()
         if game_state == GameState.PLAYING:
-            #if self.AI:
-            #    pass
+            if self.AI:
+                play = self.AI.make_a_play(sub_state)
+                [_, pos] = self.check_card_in(play)
+                return self.remove_card(pos)
             return self.make_a_play(sub_state)
 
     def make_a_bid(self):

@@ -132,6 +132,7 @@ class Deck():
         self.set_card_positions()
 
     def set_card_positions(self):
+        # TODO: Fix vertical card positioning
         number_of_cards = len(self.cards)
 
         if number_of_cards > 0:
