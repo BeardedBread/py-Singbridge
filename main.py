@@ -1,7 +1,9 @@
 import view
 import pygame
 import players
-
+import random
+import pickle
+import sys
 
 class GameScreen(view.PygView):
 
@@ -52,6 +54,18 @@ class GameScreen(view.PygView):
 
 
 if __name__ == '__main__':
+
+    if len(sys.argv) > 1:
+        if sys.argv[1] == "--seed":
+            with open(sys.argv[2], 'rb') as f:
+                # The protocol version used is detected automatically, so we do not
+                # have to specify it.
+                rng_state = pickle.load(f)
+            random.setstate(rng_state)
+
+    rng_state = random.getstate()
+    with open('last_game_rng.rng', 'wb') as f:
+        pickle.dump(rng_state, f)
 
     main_view = GameScreen(640, 400, clear_colour=(255, 0, 0))
 

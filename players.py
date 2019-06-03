@@ -396,7 +396,7 @@ class Player(cards.Deck):
         """
         if game_state == GameState.POINT_CHECK:
             if self.AI:
-                self.AI.request_reshuffle()
+                return self.AI.request_reshuffle()
             if input("Low points hand detected! Reshuffle?").lower() == 'y':
                 return self.request_reshuffle()
         if game_state == GameState.BIDDING:
