@@ -5,7 +5,7 @@ import random
 import copy
 import time
 from signalslot import Signal
-
+from ai_comp import ai
 from enum import Enum
 
 NUM_OF_PLAYERS = 4
@@ -114,6 +114,8 @@ class Table:
                                        deck_reveal=cards.DeckReveal.HIDE_ALL))
             self.players[i].connect_to_table(self.table_status)
 
+        self.players[3].add_ai(ai.randomAI(self.table_status))
+
         playfield_margins = 10
         margins_with_w_deck = w_deck + playfield_margins
         playfield_x = margins_with_w_deck
@@ -212,7 +214,7 @@ class Table:
         for i, player in enumerate(self.players):
             print("Player {0:d}: {1:d}".format(i, player.get_card_points()))
             if player.get_card_points() < 4:
-                print("Starting Player: {0:d}".format(i))
+                print("Player: {0:d}".format(i))
                 return player.make_decision(self.game_state, 0)
 
     def start_bidding(self):
@@ -343,7 +345,6 @@ class Table:
         self.update_table.emit()
 
     def reset_game(self):
-        # TODO: Reset the game
         for player in self.players:
             print(len(player.cards))
             while not player.is_empty():
@@ -366,6 +367,9 @@ class Player(cards.Deck):
     - Attempt to play a card
     - Play the validate move
 
+    The player also implements method to play from the terminal
+    if it is not a bot.
+
     """
     def __init__(self, *args, ai_component=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -377,23 +381,36 @@ class Player(cards.Deck):
     def connect_to_table(self, table):
         self._table_status = table
 
+    def add_ai(self, ai_comp):
+        self.AI = ai_comp
+        ai_comp.connect_to_player(self)
+
     def make_decision(self, game_state, sub_state):
         """
         The player will need to make a decision depending on the game state and sub-state
         :param game_state: Current game state
         :param sub_state: Sub-state which affects the output for the current game state
-        :return: For Bidding: Either a bid or a partner call
+        :return: For Bidding: Either a bid or a partner call, int
                  For Playing: A Card
+                 For Reshuffle: bool, True to reshuffle, False otherwise
         """
         if game_state == GameState.POINT_CHECK:
+            if self.AI:
+                self.AI.request_reshuffle()
             if input("Low points hand detected! Reshuffle?").lower() == 'y':
-                return True
+                return self.request_reshuffle()
         if game_state == GameState.BIDDING:
             if sub_state == 0:
+                if self.AI:
+                    return self.AI.make_a_bid()
                 return self.make_a_bid()
             else:
+                #if self.AI:
+                #    pass
                 return self.call_partner()
         if game_state == GameState.PLAYING:
+            #if self.AI:
+            #    pass
             return self.make_a_play(sub_state)
 
     def make_a_bid(self):
@@ -402,6 +419,7 @@ class Player(cards.Deck):
         :return: A valid bid number
         """
         while True:
+            # TODO: Make a more natural input parsing
             bid = input("Please input a bid in the format 'number' + 'suit' \n"
                         "To pass, enter nothing. \n"
                         "i.e. 42 is 4 Diamond, 65 is 6 No Trump \n"
@@ -434,6 +452,7 @@ class Player(cards.Deck):
         """
         current_card_values = self.get_deck_values()
         while True:
+            # TODO: Make a more natural input parsing
             partner = input("Please call your partner card. Enter suit number + card number\n"
                             "i.e 412 is Spade Queen, 108 is Clubs 8, 314 is Hearts Ace\n")
             try:
@@ -453,6 +472,7 @@ class Player(cards.Deck):
         :return: A valid Card
         """
         while True:
+            # TODO: Make a more natural input parsing
             play = input("Please play a card. Enter suit number + card number\n"
                             "i.e 412 is Spade Queen, 108 is Clubs 8, 314 is Hearts Ace\n")
             if play:
@@ -472,6 +492,12 @@ class Player(cards.Deck):
         pass
 
     def check_for_valid_plays(self, card, leading):
+        """
+        Check if the card played is valid
+        :param card: int
+        :param leading: bool
+        :return:
+        """
         if not self.check_card_in(card):
             return False
         card_suit = cards.get_card_suit(card)
