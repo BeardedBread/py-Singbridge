@@ -141,15 +141,21 @@ class Table:
         announcer_spacing = announcer_margins + w_deck
         self.announcer_x = playfield_x + announcer_spacing
         self.announcer_y = playfield_y + announcer_spacing
-        announcer_width =  playfield_width - 2 * announcer_spacing
-        announcer_height =  playfield_height - 2 * announcer_spacing
-        self.announcer = pygame.Surface((announcer_width, announcer_height), pygame.SRCALPHA)
+        self.announcer_width = playfield_width - 2 * announcer_spacing
+        self.announcer_height = playfield_height - 2 * announcer_spacing
+        #self.announcer = pygame.Surface((announcer_width, self.announcer_height), pygame.SRCALPHA)
+        self.announcer_line = []
+        for i in range(3):
+            surf = pygame.Surface((self.announcer_width, self.announcer_height/3), pygame.SRCALPHA)
+            self.announcer_line.append(surf)
+
+
         self.table_font = pygame.font.SysFont("None", 30)
-        self.write_message("Testing....")
+        #self.write_message("Testing....")
 
         self.ongoing = False
 
-    def write_message(self, text, delay_time = 0.5):
+    def write_message(self, text, delay_time=0.5, line=0):
         """
         Write a message into the center board surface (announcer)
         :param text: String to be displayed on the center board
@@ -157,9 +163,9 @@ class Table:
         """
         print(text)
         text.strip('\n')
-        self.announcer.fill((255, 255, 255, 0))
-        rendered_text = self.table_font.render(text, True, (255,0,0)).convert_alpha()
-        self.announcer.blit(rendered_text, (50, 50))
+        rendered_text = self.table_font.render(text, True, (255, 0, 0)).convert_alpha()
+        self.announcer_line[line].fill((255, 255, 255, 255))
+        self.announcer_line[line].blit(rendered_text, (0, self.announcer_height/6))
         self.update_table.emit()
         time.sleep(delay_time)
 
@@ -242,7 +248,7 @@ class Table:
         first_player = True  # Starting bidder "privilege" to raise the starting bid
         while passes < NUM_OF_PLAYERS - 1:
             print("Player {0:d}\n-----".format(current_player))
-            self.write_message("Current Bid: {0:d}".format(self.table_status["bid"]))
+            self.write_message("Current Bid: {0:d}".format(self.table_status["bid"]),line=1)
             print('Bid Leader: Player {0:d}'.format((current_player-passes-1*(not first_player))% 4))
             print("Passes: {0:d}".format(passes))
 
@@ -325,7 +331,7 @@ class Table:
                     self.write_message("Partner Revealed!", delay_time=1)
             self.update_table.emit()
 
-        time.sleep(1)
+        #time.sleep(1)
         # Once all player played, find out who wins
         card_suits = [card.suit() for card in self.table_status["played cards"]]
         card_nums = [card.number() for card in self.table_status["played cards"]]
@@ -339,7 +345,7 @@ class Table:
         # Determine which players to check for winner, and determine winner
         valid_nums = [card_nums[i] * ((follow_suits[i] and not trump_played) or trumps[i]) for i in range(4)]
         winning_player = valid_nums.index(max(valid_nums))
-        self.write_message("Player {0:d} wins!\n".format(winning_player))
+        self.write_message("Player {0:d} wins!\n".format(winning_player), delay_time=1)
         # Clean up the cards, update score, set the next leading player, update round history
         for deck in self.players_playzone:
             self.discard_deck.append(deck.remove_card())
@@ -352,7 +358,7 @@ class Table:
         self.table_status['leading player'] = winning_player
         self.table_status['round history'].append(copy.copy(self.table_status["played cards"]))
         self.write_message("Defender:{0:d}, Attacker:{1:d}\n".format(self.table_status['defender']['wins'],
-                                                        self.table_status['attacker']['wins']))
+                                                        self.table_status['attacker']['wins']), line=2)
 
         # TODO: Add function to reflect the score on the screen
 
