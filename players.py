@@ -86,10 +86,9 @@ class Table:
         self.background.fill(clear_colour)
         self.background = self.background.convert()
 
-        self.discard_deck = cards.prepare_playing_cards(50, 50)  # This is not a deck as it will never be drawn
-
         w_deck = min(self.height, self.width) * 0.15
         l_deck = min(self.width, self.height) * 0.7
+        self.discard_deck = cards.prepare_playing_cards(int(w_deck), int(w_deck))  # This is not a deck as it will never be drawn
 
         playerx = ((self.width - l_deck)//2,
                    0,
@@ -148,16 +147,21 @@ class Table:
         self.table_font = pygame.font.SysFont("None", 30)
         self.write_message("Testing....")
 
-    def write_message(self, text):
+        self.ongoing = False
+
+    def write_message(self, text, delay_time = 0.5):
         """
         Write a message into the center board surface (announcer)
         :param text: String to be displayed on the center board
         :return: None
         """
-        # TODO: Write procedure to update the announcer text
+        print(text)
+        text.strip('\n')
+        self.announcer.fill((255, 255, 255, 0))
         rendered_text = self.table_font.render(text, True, (255,0,0)).convert_alpha()
         self.announcer.blit(rendered_text, (50, 50))
         self.update_table.emit()
+        time.sleep(delay_time)
 
     def get_pos(self):
         return self.x, self.y
@@ -168,22 +172,23 @@ class Table:
         What takes place in the state should be in a function.
         :return: None
         """
+        # TODO: slow down the game a bit using sleep
         #while(True):
         if self.game_state == GameState.DEALING:
             self.shuffle_and_deal()
-            print("Shuffle Complete!")
+            self.write_message("Shuffle Complete!")
             self.game_state = GameState.POINT_CHECK
 
         elif self.game_state == GameState.POINT_CHECK:
             if self.check_reshuffle():
-                print('Reshuffle Initiated!')
+                self.write_message('Reshuffle Initiated!')
                 self.game_state = GameState.ENDING
             else:
-                print('No Reshuffle needed!')
+                self.write_message('No Reshuffle needed!')
                 self.game_state = GameState.BIDDING
 
         elif self.game_state == GameState.BIDDING:
-            print("Start to Bid")
+            self.write_message("Start to Bid")
             self.start_bidding()
             self.game_state = GameState.PLAYING
 
@@ -191,7 +196,7 @@ class Table:
             while self.current_round < 13:
                 self.play_a_round()
                 self.current_round += 1
-            print("Game Set")
+            self.write_message("Game Set")
             self.game_state = GameState.ENDING
         else:
             self.reset_game()
@@ -237,9 +242,10 @@ class Table:
         first_player = True  # Starting bidder "privilege" to raise the starting bid
         while passes < NUM_OF_PLAYERS - 1:
             print("Player {0:d}\n-----".format(current_player))
-            print("Current Bid: {0:d}".format(self.table_status["bid"]))
+            self.write_message("Current Bid: {0:d}".format(self.table_status["bid"]))
             print('Bid Leader: Player {0:d}'.format((current_player-passes-1*(not first_player))% 4))
             print("Passes: {0:d}".format(passes))
+
             player_bid = self.players[current_player].make_decision(self.game_state, 0)
             if not player_bid:
                 if not first_player:  # Starting bidder pass do not count at the start
@@ -255,7 +261,8 @@ class Table:
             current_player += 1
             current_player %= 4
 
-        print("Player {0:d} is the bid winner!".format(current_player))
+        self.write_message("Player {0:d} is the bid winner!".format(current_player))
+
         print("Player {0:d}\n-----".format(current_player))
         # Ask for the partner card
         self.table_status["partner"] = self.players[current_player].make_decision(self.game_state, 1)
@@ -283,7 +290,7 @@ class Table:
             else:
                 self.players[current_player].role = PlayerRole.ATTACKER
 
-        print('Bidding Complete')
+        self.write_message('Bidding Complete')
 
     def play_a_round(self):
         """
@@ -301,7 +308,7 @@ class Table:
         if not self.table_status['partner reveal']:
             if leading_card.value == self.table_status['partner']:
                 self.table_status['partner reveal'] = True
-                print("Partner Revealed!")
+                self.write_message("Partner Revealed!", delay_time=1)
         # Subsequent player make their plays, following suit if possible
         for _ in range(3):
             current_player += 1
@@ -315,11 +322,10 @@ class Table:
             if not self.table_status['partner reveal']:
                 if card.value == self.table_status['partner']:
                     self.table_status['partner reveal'] = True
-                    print("Partner Revealed!")
+                    self.write_message("Partner Revealed!", delay_time=1)
             self.update_table.emit()
 
         time.sleep(1)
-        #print(self.table_status["played cards"])
         # Once all player played, find out who wins
         card_suits = [card.suit() for card in self.table_status["played cards"]]
         card_nums = [card.number() for card in self.table_status["played cards"]]
@@ -333,7 +339,7 @@ class Table:
         # Determine which players to check for winner, and determine winner
         valid_nums = [card_nums[i] * ((follow_suits[i] and not trump_played) or trumps[i]) for i in range(4)]
         winning_player = valid_nums.index(max(valid_nums))
-        print("Player {0:d} wins!\n".format(winning_player))
+        self.write_message("Player {0:d} wins!\n".format(winning_player))
         # Clean up the cards, update score, set the next leading player, update round history
         for deck in self.players_playzone:
             self.discard_deck.append(deck.remove_card())
@@ -345,8 +351,11 @@ class Table:
 
         self.table_status['leading player'] = winning_player
         self.table_status['round history'].append(copy.copy(self.table_status["played cards"]))
-        print("Defender:{0:d}, Attacker:{1:d}\n".format(self.table_status['defender']['wins'],
+        self.write_message("Defender:{0:d}, Attacker:{1:d}\n".format(self.table_status['defender']['wins'],
                                                         self.table_status['attacker']['wins']))
+
+        # TODO: Add function to reflect the score on the screen
+
         self.update_table.emit()
 
     def reset_game(self):

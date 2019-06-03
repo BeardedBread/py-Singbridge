@@ -17,6 +17,7 @@ class GameScreen(view.PygView):
         pass
 
     def draw_table(self, **kwargs):
+        # TODO: optimise this by only redrawing the parts that changes
         self.screen.blit(self.background, (0, 0))
         self.screen.blit(self.table.background, self.table.get_pos())
         for player in self.table.players:
@@ -37,10 +38,11 @@ class GameScreen(view.PygView):
                     if event.key == pygame.K_ESCAPE:
                         running = False
                     if event.key == pygame.K_p:
-                        print('add cards')
-                        pass
+                        if not self.table.ongoing:
+                            self.table.ongoing = True
                     #if event.key == pygame.K_l:
-            self.table.continue_game()
+            if self.table.ongoing:
+                self.table.continue_game()
 
             milliseconds = self.clock.tick(self.fps)
             #self.playtime += milliseconds / 1000.0
@@ -67,6 +69,6 @@ if __name__ == '__main__':
     with open('last_game_rng.rng', 'wb') as f:
         pickle.dump(rng_state, f)
 
-    main_view = GameScreen(640, 400, clear_colour=(255, 0, 0))
+    main_view = GameScreen(800, 600, clear_colour=(255, 0, 0))
 
     main_view.run()

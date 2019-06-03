@@ -178,6 +178,7 @@ class Deck():
                 for card in self.cards:
                     self.deck_surface.blit(card.image, (card.x, card.y))
 
+
     def remove_card(self, pos=-1):
         if not self.is_empty():
             if pos < 0:
