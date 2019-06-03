@@ -70,6 +70,9 @@ class Table:
         self.width = width
         self.height = height
 
+        self.table_font = pygame.font.SysFont("None", 30)
+        self.player_font = pygame.font.SysFont("None", 20)
+
         # For gameplay
         self.game_state = GameState.DEALING
         self.current_round = 0
@@ -102,11 +105,6 @@ class Table:
         spacing = 20
 
         for i in range(4):
-            #if i == 0:
-            #    self.players.append(MainPlayer(playerx[i], playery[i],
-            #                                   l_deck, w_deck,
-            #                                   spacing))
-            #else:
             vert = i % 2 == 1
             self.players.append(Player(playerx[i], playery[i],
                                        l_deck, w_deck,
@@ -115,7 +113,6 @@ class Table:
             self.players[i].connect_to_table(self.table_status)
             if i>0:
                 self.players[i].add_ai(ai.RandomAI(self.table_status))
-
 
 
         playfield_margins = 10
@@ -133,9 +130,29 @@ class Table:
                    playfield_y + (playfield_height - margins_with_w_deck) // 2,
                    playfield_y,
                    playfield_y + (playfield_height - margins_with_w_deck) // 2)
+
+        stats_width = 100
+        self.stats_height = 100
+        self.player_stats_x = ((self.width - l_deck) // 2,
+                               w_deck,
+                               (self.width + l_deck) // 2 - stats_width,
+                               self.width - w_deck - stats_width)
+        self.player_stats_y = ((self.height - w_deck - self.stats_height),
+                               w_deck,
+                               w_deck,
+                               self.height - w_deck - self.stats_height)
+
+        self.player_stats = [[], [], [], []]
+
+
+
         for i in range(4):
             self.players_playzone.append(cards.Deck(playdeckx[i], playdecky[i],
                                            w_deck, w_deck, 0))
+            for j in range(3):
+                self.player_stats[i].append(pygame.Surface((stats_width, self.stats_height/3), pygame.SRCALPHA))
+
+            self.update_player_stats(i)
 
         announcer_margins = 5
         announcer_spacing = announcer_margins + w_deck
@@ -150,7 +167,7 @@ class Table:
             self.announcer_line.append(surf)
 
 
-        self.table_font = pygame.font.SysFont("None", 30)
+
         #self.write_message("Testing....")
 
         self.ongoing = False
@@ -168,6 +185,12 @@ class Table:
         self.announcer_line[line].blit(rendered_text, (0, self.announcer_height/6))
         self.update_table.emit()
         time.sleep(delay_time)
+
+    def update_player_stats(self, player_num):
+        for i, stats_line in enumerate(self.player_stats[player_num]):
+            stats_line.fill((255, 255, 255, 255))
+            rendered_text = self.player_font.render("test", True, (255, 0, 255)).convert_alpha()
+            stats_line.blit(rendered_text, (0, 0))
 
     def get_pos(self):
         return self.x, self.y

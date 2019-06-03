@@ -27,6 +27,10 @@ class GameScreen(view.PygView):
         for i, announcer_line in enumerate(self.table.announcer_line):
             self.screen.blit(announcer_line, (self.table.announcer_x,
                                               self.table.announcer_y+self.table.announcer_height*i/3))
+        for i, player_stats in enumerate(self.table.player_stats):
+            for j, stats_line in enumerate(player_stats):
+                self.screen.blit(stats_line, (self.table.player_stats_x[i],
+                                              self.table.player_stats_y[i]+self.table.stats_height*j/3))
 
         pygame.display.flip()
 
