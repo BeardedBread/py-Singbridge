@@ -73,8 +73,8 @@ class Table:
         self.width = width
         self.height = height
 
-        self.table_font = pygame.font.SysFont("None", 30)
-        self.player_font = pygame.font.SysFont("None", 30)
+        self.table_font = pygame.font.SysFont("None", 25)
+        self.player_font = pygame.font.SysFont("None", 25)
 
         # For gameplay
         self.game_state = GameState.DEALING
@@ -138,7 +138,7 @@ class Table:
 
         self.player_stats = [[], [], [], []]
 
-        # TODO: change surface to use colorkey
+        # TODO: change surface to use colorkey, maybe, if the performance is tanked
         for i in range(4):
             vert = i % 2 == 1
             self.players.append(Player(playerx[i], playery[i],
@@ -569,31 +569,25 @@ class Player(cards.Deck):
         :return: A valid bid number
         """
         while True:
-            # TODO: Make a more natural input parsing
             bid = input("Please input a bid in the format 'number' + 'suit' \n"
                         "To pass, enter nothing. \n"
-                        "i.e. 42 is 4 Diamond, 65 is 6 No Trump \n"
-                        "Suit Number: 1-Club 2-Diamond 3-Hearts 4-Spades 5-NoTrump\n")
+                        "e.g 4d is 4 Diamond, 6n is 6 No Trump \n")
 
             if not bid:
                 return 0
-            try:
-                bid = int(bid)
-            except ValueError:
+
+            bid = cards.convert_bid_string(bid)
+            if bid < 0:
                 print("Please enter integer only")
-            if self._table_status["bid"] < bid and self.bid_check(bid):
+                continue
+
+            if self._table_status["bid"] < bid:
                 return bid
             else:
                 if bid > 75:
                     print("You cannot bid beyond 7 No Trump")
                 else:
-                    print("Invalid bid")
-
-    @staticmethod
-    def bid_check(value):
-        rounds = value // 10
-        suit = value % 10
-        return rounds <= 5 and 1 <= suit <= 5
+                    print("You might need to bid higher")
 
     def call_partner(self):
         """
@@ -603,18 +597,16 @@ class Player(cards.Deck):
         current_card_values = self.get_deck_values()
         while True:
             # TODO: Make a more natural input parsing
-            partner = input("Please call your partner card. Enter suit number + card number\n"
-                            "i.e 412 is Spade Queen, 108 is Clubs 8, 314 is Hearts Ace\n")
-            try:
-                partner = int(partner)
-                if partner in current_card_values:
-                    print("Please call a card outside of your hand")
-                elif cards.card_check(partner):
-                    return partner
-                else:
-                    print("Invalid card call")
-            except ValueError:
-                print("Please enter integer only")
+            partner = input("Please call your partner card. Enter card number + suit number \n"
+                            "e.g. qs is Queen Spade, 8c is 8 Clubs, ah is Ace Hearts\n")
+
+            partner = cards.convert_input_string(partner)
+            if partner in current_card_values:
+                print("Please call a card outside of your hand")
+            elif cards.card_check(partner):
+                return partner
+            else:
+                print("Invalid card call")
 
     def make_a_play(self, substate):
         """
@@ -623,20 +615,21 @@ class Player(cards.Deck):
         """
         while True:
             # TODO: Make a more natural input parsing
-            play = input("Please play a card. Enter suit number + card number\n"
-                         "i.e 412 is Spade Queen, 108 is Clubs 8, 314 is Hearts Ace\n")
+            play = input("Please play a card.Enter card number + suit number \n"
+                         "e.g. qs is Queen Spade, 8c is 8 Clubs, ah is Ace Hearts\n")
             if play == "v":
                 pprint.pprint(self._table_status)
             else:
-                play = int(play)
-                if substate == 0:
-                    valid = self.check_for_valid_plays(play, True)
-                else:
-                    valid = self.check_for_valid_plays(play, False)
+                play = cards.convert_input_string(play)
+                if play > 0:
+                    if substate == 0:
+                        valid = self.check_for_valid_plays(play, True)
+                    else:
+                        valid = self.check_for_valid_plays(play, False)
 
-                if valid:
-                    [_, pos] = self.check_card_in(play)
-                    return self.remove_card(pos)
+                    if valid:
+                        [_, pos] = self.check_card_in(play)
+                        return self.remove_card(pos)
 
                 print("Invalid play")
 

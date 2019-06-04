@@ -13,8 +13,12 @@ from enum import Enum
 CARDS_SYMBOLS = {14: "A", 2: "2", 3: "3", 4: "4", 5: "5", 6: "6", 7: "7",
                  8: "8", 9: "9", 10: "10", 11: "J", 12: "Q", 13: "K",
                  100: "Clubs", 200: "Diamonds", 300: "Hearts", 400: "Spades", 500: "No Trump",
-                 "C": 100, "D": 200, "H": 300, "S": 400, "A": 14}
+                 }
 
+INPUT_SYMBOLS = {"c": 100, "d": 200, "h": 300, "s": 400, "n":500, "a": 14,
+                 "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7,
+                 "8": 8, "9": 9, "10": 10, "j": 11, "q": 12, "k": 13,
+                 }
 
 class DeckReveal(Enum):
     SHOW_ALL = 1
@@ -313,6 +317,21 @@ def get_card_string(value):
 def get_suit_string(value):
     return CARDS_SYMBOLS[value*100]
 
+
+def convert_input_string(string):
+    try:
+        return INPUT_SYMBOLS[string[0:-1]] + INPUT_SYMBOLS[string[-1]]
+    except KeyError:
+        return -1
+
+
+def convert_bid_string(string):
+    try:
+        return int(string[0])*10 + INPUT_SYMBOLS[string[1]]//100
+    except KeyError:
+        return -1
+    except ValueError:
+        return -1
 
 class test_screen(view.PygView):
 

@@ -5,7 +5,7 @@ import random
 import pickle
 import sys
 
-AUTOPLAY = True
+AUTOPLAY = False
 
 
 class GameScreen(view.PygView):
