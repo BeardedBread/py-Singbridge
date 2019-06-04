@@ -92,10 +92,10 @@ class Table:
         self.background.fill(clear_colour)
         self.background = self.background.convert()
 
-        w_deck = min(self.height, self.width) * 0.15
+        w_deck = min(self.height, self.width) * 0.18
         l_deck = min(self.width, self.height) * 0.7
         # This is not a deck as it will never be drawn
-        self.discard_deck = cards.prepare_playing_cards(int(w_deck), int(w_deck))
+        self.discard_deck = cards.prepare_playing_cards(int(w_deck*0.7), int(w_deck*0.9))
 
         playerx = ((self.width - l_deck)//2,
                    0,

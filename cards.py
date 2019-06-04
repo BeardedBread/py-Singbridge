@@ -43,14 +43,14 @@ class Card(pygame.sprite.Sprite):
         self.parent = parent
 
         if image_data:
-            self.image = image_data.convert()
+            self.image = image_data
             self.image = pygame.transform.scale(self.image, (self.width, self.height))
 
         # Display Value for Debug Purposes
-        myfont = pygame.font.SysFont("None", 16)
-        mytext = myfont.render(str(self.value), True, (0, 0, 0))
-        mytext = mytext.convert_alpha()
-        self.image.blit(mytext, (0, 0))
+        #myfont = pygame.font.SysFont("None", 16)
+        #mytext = myfont.render(str(self.value), True, (0, 0, 0))
+        #mytext = mytext.convert_alpha()
+        #self.image.blit(mytext, (0, 0))
 
         self._layer = 0
 
@@ -87,16 +87,19 @@ class Deck():
         self.cards = []
 
         if self.is_horizontal():
-            self.background = pygame.Surface((self.length, self.width), pygame.SRCALPHA)
+            self.background = pygame.Surface((self.length, self.width))
+            self.background.fill((0, 255, 0))
             pygame.draw.rect(self.background, (255, 255, 255), self.background.get_rect(), 5)
-            #self.background.fill((0, 255, 0))
-            self.background = self.background.convert_alpha()
+
+            self.background = self.background.convert()
+            self.background.set_colorkey((0, 255, 0))
             self.deck_surface = self.background.copy()
         else:
-            self.background = pygame.Surface((self.width, self.length), pygame.SRCALPHA)
+            self.background = pygame.Surface((self.width, self.length))
+            self.background.fill((0, 255, 0))
             pygame.draw.rect(self.background, (255, 255, 255), self.background.get_rect(), 5)
-            #self.background.fill((0, 255, 0))
-            self.background = self.background.convert_alpha()
+            self.background = self.background.convert()
+            self.background.set_colorkey((0, 255, 0))
             self.deck_surface = self.background.copy()
 
         self._layer = 1
@@ -217,6 +220,36 @@ class Deck():
         return False, -1
 
 
+class SpriteSheet(object):
+    def __init__(self, filename):
+        try:
+            self.sheet = pygame.image.load(filename).convert()
+        except pygame.error:
+            print('Unable to load spritesheet image:', filename)
+            raise Exception("Cannot load image")
+
+    # Load a specific image from a specific rectangle
+    def image_at(self, rectangle, colorkey=None):
+        "Loads image from x,y,x+offset,y+offset"
+        rect = pygame.Rect(rectangle)
+        image = pygame.Surface(rect.size).convert()
+        image.blit(self.sheet, (0, 0), rect)
+        if colorkey is not None:
+            if colorkey is -1:
+                colorkey = image.get_at((0, 0))
+            image.set_colorkey(colorkey, pygame.RLEACCEL)
+        return image
+    # Load a whole bunch of images and return them as a list
+    def images_at(self, rects, colorkey = None):
+        "Loads multiple images, supply a list of coordinates"
+        return [self.image_at(rect, colorkey) for rect in rects]
+    # Load a whole strip of images
+    def load_strip(self, rect, image_count, colorkey = None):
+        "Loads a strip of images and returns them as a list"
+        tups = [(rect[0]+rect[2]*x, rect[1], rect[2], rect[3])
+                for x in range(image_count)]
+        return self.images_at(tups, colorkey)
+
 class PlayerDeck(Deck):
     # TODO: Maybe merge with Regular Deck
      def get_selected_card(self, pos):
@@ -229,24 +262,31 @@ class PlayerDeck(Deck):
 DATA_FOLDER = "data"
 
 
-def prepare_playing_cards(width, height):
+def prepare_playing_cards(display_w, display_h):
     """
     Create the 52 playing cards. Should be called only once.
-    :param int width: Card width
-    :param int height: Card Height
+    :param int display_w: Card width
+    :param int display_h: Card Height
     :return: The list of 52 Cards
     :rtype: List of <Cards>
     """
-    try:  # try to load images from the harddisk
-        card_img = pygame.image.load(os.path.join(DATA_FOLDER, 'diamond.jpg'))
-    except:
-        raise Exception("Cannot load image")  # print error message and exit program
-
+    #try:  # try to load images from the harddisk
+    #    card_img = pygame.image.load(os.path.join(DATA_FOLDER, 'diamond.jpg'))
+    #except:
+    #    raise Exception("Cannot load image")  # print error message and exit program
+    card_sprites = SpriteSheet(os.path.join(DATA_FOLDER, 'card_spritesheet_2.png'))
     all_cards = []
-
+    offset = 4
+    spacing = 7
+    width = 118
+    height = 174
+    suits_position = [2, 1, 0, 3]
     for i in range(4):
+        y = suits_position[i] * (height+spacing) + offset
         for j in range(13):
-            all_cards.append(Card(0, 0, width, height, (i+1)*100 + j+2, image_data=card_img))
+            x = offset + (width+spacing)*j
+            card_img = card_sprites.image_at((x, y, width, height))
+            all_cards.append(Card(0, 0, display_w, display_h, (i+1)*100 + j+2, image_data=card_img))
 
     return all_cards
 
@@ -279,26 +319,15 @@ class test_screen(view.PygView):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        try:  # try to load images from the harddisk
-            data_path = os.path.join(DATA_FOLDER, 'diamond.jpg')
-            self.card_img = pygame.image.load(data_path)
-        except:
-            raise Exception("Cannot load image")  # print error message and exit program
-
-        self.test_card = Card(50, 0, 50, 75, 111, image_data=self.card_img)
+        all_cards = prepare_playing_cards(50, 75)
         self.test_deck = Deck(100, 100, 200, 100, 25)
-        self.test_deck.add_card(Card(50, 0, 50, 75, 315, image_data=self.card_img))
-        self.test_deck.add_card(Card(50, 0, 50, 75, 210, image_data=self.card_img))
-        self.test_deck.add_card(Card(50, 0, 50, 75, 103, image_data=self.card_img))
-        self.test_deck.add_card(Card(50, 0, 50, 75, 405, image_data=self.card_img))
-        self.test_deck.add_card(Card(50, 0, 50, 75, 112, image_data=self.card_img))
-        self.test_deck.add_card(Card(50, 0, 50, 75, 301, image_data=self.card_img))
-        self.test_deck.add_card(Card(50, 0, 50, 75, 206, image_data=self.card_img))
-        self.test_deck.add_card(Card(50, 0, 50, 75, 206, image_data=self.card_img))
-        self.test_deck.add_card(Card(50, 0, 50, 75, 206, image_data=self.card_img))
+        self.test_deck.add_card(all_cards[0])
+        self.test_deck.add_card(all_cards[13])
+        self.test_deck.add_card(all_cards[35])
+        self.test_deck.add_card(all_cards[51])
 
     def draw_function(self):
-        self.screen.blit(self.test_card.image, self.test_card.get_pos())
+        #self.screen.blit(self.test_card.image, self.test_card.get_pos())
         self.screen.blit(self.test_deck.deck_surface, self.test_deck.get_pos())
 
     def run(self):
