@@ -178,7 +178,7 @@ class Deck():
         self.update_deck_display()
 
     def update_deck_display(self):
-        self.deck_surface.fill((0, 0, 0, 0))
+        self.background.fill((0, 255, 0))
         self.deck_surface.blit(self.background, (0, 0))
         if not self.is_empty():
             if self.draw_from_last:

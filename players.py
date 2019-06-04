@@ -138,6 +138,7 @@ class Table:
 
         self.player_stats = [[], [], [], []]
 
+        # TODO: change surface to use colorkey
         for i in range(4):
             vert = i % 2 == 1
             self.players.append(Player(playerx[i], playery[i],
@@ -279,7 +280,7 @@ class Table:
 
         elif self.game_state == GameState.POINT_CHECK:
             if self.check_reshuffle():
-                self.write_message('Reshuffle Initiated!')
+                self.write_message('Reshuffle Initiated!', line=1)
                 self.game_state = GameState.ENDING
             else:
                 self.write_message('No Reshuffle needed!')
@@ -325,7 +326,7 @@ class Table:
         for i, player in enumerate(self.players):
             print("Player {0:d}: {1:d}".format(i, player.get_card_points()))
             if player.get_card_points() < 4:
-                print("Player: {0:d}".format(i))
+                self.write_message("Low points detected in Player {0:d}! ".format(i))
                 return player.make_decision(self.game_state, 0)
 
     def start_bidding(self):
@@ -544,7 +545,7 @@ class Player(cards.Deck):
         if game_state == GameState.POINT_CHECK:
             if self.AI:
                 return self.AI.request_reshuffle()
-            if input("Low points hand detected! Reshuffle?").lower() == 'y':
+            if input("Reshuffle? (y/n)").lower() == 'y':
                 return self.request_reshuffle()
         if game_state == GameState.BIDDING:
             if sub_state == 0:
