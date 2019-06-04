@@ -9,6 +9,8 @@ import os
 import random
 from enum import Enum
 
+CLEARCOLOUR = (0, 99, 0)
+
 # LUT for mapping int to cards symbols
 CARDS_SYMBOLS = {14: "A", 2: "2", 3: "3", 4: "4", 5: "5", 6: "6", 7: "7",
                  8: "8", 9: "9", 10: "10", 11: "J", 12: "Q", 13: "K",
@@ -92,18 +94,18 @@ class Deck():
 
         if self.is_horizontal():
             self.background = pygame.Surface((self.length, self.width))
-            self.background.fill((0, 255, 0))
+            self.background.fill(CLEARCOLOUR)
             pygame.draw.rect(self.background, (255, 255, 255), self.background.get_rect(), 5)
 
             self.background = self.background.convert()
-            self.background.set_colorkey((0, 255, 0))
+            self.background.set_colorkey(CLEARCOLOUR)
             self.deck_surface = self.background.copy()
         else:
             self.background = pygame.Surface((self.width, self.length))
-            self.background.fill((0, 255, 0))
+            self.background.fill(CLEARCOLOUR)
             pygame.draw.rect(self.background, (255, 255, 255), self.background.get_rect(), 5)
             self.background = self.background.convert()
-            self.background.set_colorkey((0, 255, 0))
+            self.background.set_colorkey(CLEARCOLOUR)
             self.deck_surface = self.background.copy()
 
         self._layer = 1
@@ -166,10 +168,12 @@ class Deck():
                         card.y = (self.width - self.cards[0].height) / 2
             else:
                 total_card_length = self.cards[0].height + self.default_spacing * (number_of_cards-1)
+
                 if total_card_length <= self.length:
                     start_point = (self.length - total_card_length)/2
+                    #start_point = 0
                     for (i, card) in enumerate(self.cards):
-                        card.y = start_point + self.default_spacing * (i-1)
+                        card.y = start_point + self.default_spacing * i
                         card.x = (self.width - self.cards[0].width) / 2
                 else:
                     adjusted_spacing = (self.length - self.cards[0].height)/(number_of_cards-1)
@@ -182,7 +186,7 @@ class Deck():
         self.update_deck_display()
 
     def update_deck_display(self):
-        self.deck_surface.fill((0, 255, 0))
+        self.deck_surface.fill(CLEARCOLOUR)
         self.deck_surface.blit(self.background, (0, 0))
         if not self.is_empty():
             if self.draw_from_last:
@@ -278,17 +282,20 @@ def prepare_playing_cards(display_w, display_h):
     #    card_img = pygame.image.load(os.path.join(DATA_FOLDER, 'diamond.jpg'))
     #except:
     #    raise Exception("Cannot load image")  # print error message and exit program
-    card_sprites = SpriteSheet(os.path.join(DATA_FOLDER, 'card_spritesheet_2.png'))
+    card_sprites = SpriteSheet(os.path.join(DATA_FOLDER, 'card_spritesheet_3.png'))
     all_cards = []
-    offset = 4
-    spacing = 7
-    width = 118
-    height = 174
-    suits_position = [2, 1, 0, 3]
+    offset = 0
+    spacing = 0
+    width = 71
+    height = 96
+    suits_position = [2, 3, 1, 0]
     for i in range(4):
         y = suits_position[i] * (height+spacing) + offset
         for j in range(13):
-            x = offset + (width+spacing)*j
+            if j < 12:
+                x = offset + (width+spacing)*(j+1)
+            else:
+                x = offset
             card_img = card_sprites.image_at((x, y, width, height))
             all_cards.append(Card(0, 0, display_w, display_h, (i+1)*100 + j+2, image_data=card_img))
 

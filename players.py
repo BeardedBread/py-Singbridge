@@ -106,7 +106,8 @@ class Table:
                    0,
                    (self.height - l_deck)//2)
 
-        spacing = 20
+        h_spacing = 20
+        v_spacing = 25
 
         playfield_margins = 10
         margins_with_w_deck = w_deck + playfield_margins
@@ -141,6 +142,9 @@ class Table:
         # TODO: change surface to use colorkey, maybe, if the performance is tanked
         for i in range(4):
             vert = i % 2 == 1
+            spacing = h_spacing
+            if vert:
+                spacing = v_spacing
             self.players.append(Player(playerx[i], playery[i],
                                        l_deck, w_deck,
                                        spacing, vert_orientation=vert,
