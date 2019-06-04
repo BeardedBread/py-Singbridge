@@ -30,7 +30,7 @@ class RandomAI:
         if self.player:
             current_round_bid = self.table_status["bid"] // 10
             current_suit_bid = self.table_status["bid"] % 10
-            gen_bid = random.randint(1, 7)*10 + random.randint(1, 5)
+            gen_bid = random.randint(11, 75)
             print(gen_bid)
             if gen_bid > self.table_status["bid"]:
                 if current_suit_bid == 5:

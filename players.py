@@ -13,7 +13,7 @@ NUM_OF_PLAYERS = 4
 STARTING_HAND = 13
 HIGHEST_CARD = 414
 LOWEST_CARD = 102
-
+VIEW_TRANSPARENT = False
 
 class GameState(Enum):
     DEALING = 0
@@ -66,14 +66,15 @@ class Table:
     """
     update_table = Signal()
 
-    def __init__(self, x, y, width, height, clear_colour):
+    def __init__(self, x, y, width, height, clear_colour, autoplay=False):
+        # TODO: Reduce the amount of update_table call
         self.x = x
         self.y = y
         self.width = width
         self.height = height
 
         self.table_font = pygame.font.SysFont("None", 30)
-        self.player_font = pygame.font.SysFont("None", 20)
+        self.player_font = pygame.font.SysFont("None", 30)
 
         # For gameplay
         self.game_state = GameState.DEALING
@@ -150,10 +151,13 @@ class Table:
             self.players_playzone.append(cards.Deck(playdeckx[i], playdecky[i],
                                          w_deck, w_deck, 0))
             for j in range(3):
-                self.player_stats[i].append(pygame.Surface((stats_width, self.stats_height/3), pygame.SRCALPHA))
-
-            self.update_player_stats(i)
-
+                surf = pygame.Surface((stats_width, self.stats_height / 3), pygame.SRCALPHA)
+                rendered_text = self.player_font.render("Player {0:d}".format(i), True,
+                                                        (255, 0, 255)).convert_alpha()
+                surf.blit(rendered_text, (0, 0))
+                self.player_stats[i].append(surf)
+        if autoplay:
+            self.players[0].add_ai(ai.RandomAI(self.table_status))
         announcer_margins = 5
         announcer_spacing = announcer_margins + w_deck
         self.announcer_x = playfield_x + announcer_spacing
@@ -164,6 +168,8 @@ class Table:
         for i in range(3):
             surf = pygame.Surface((self.announcer_width, self.announcer_height/3), pygame.SRCALPHA)
             self.announcer_line.append(surf)
+
+        self.update_all_players(role=True, wins=True)
 
         self.write_message("Press P to play!")
 
@@ -178,18 +184,50 @@ class Table:
         :return: None
         """
         print(text)
-        text.strip('\n')
-        rendered_text = self.table_font.render(text, True, (255, 0, 0)).convert_alpha()
-        self.announcer_line[line].fill((255, 255, 255, 255))
-        self.announcer_line[line].blit(rendered_text, (0, self.announcer_height/6))
+        text = text.strip('\n')
+        rendered_text = self.table_font.render(text, True, (255, 255, 255)).convert_alpha()
+        self.announcer_line[line].fill((255, 255, 255, 255*VIEW_TRANSPARENT))
+        self.announcer_line[line].blit(rendered_text, (0, 0))
         self.update_table.emit()
         time.sleep(delay_time)
 
-    def update_player_stats(self, player_num):
-        for i, stats_line in enumerate(self.player_stats[player_num]):
-            stats_line.fill((255, 255, 255, 255))
-            rendered_text = self.player_font.render("test", True, (255, 0, 255)).convert_alpha()
-            stats_line.blit(rendered_text, (0, 0))
+    def update_players_role(self, player_num, update_now=True):
+        self.player_stats[player_num][1].fill((255, 255, 255, 255*VIEW_TRANSPARENT))
+        if self.players[player_num].role == PlayerRole.DEFENDER:
+            rendered_text = self.player_font.render("Defender", True, (255, 255, 255)).convert_alpha()
+            self.player_stats[player_num][1].blit(rendered_text, (0, 0))
+        elif self.players[player_num].role == PlayerRole.ATTACKER:
+            rendered_text = self.player_font.render("Attacker", True, (255, 255, 255)).convert_alpha()
+            self.player_stats[player_num][1].blit(rendered_text, (0, 0))
+
+        if update_now:
+            self.update_table.emit()
+
+    def update_player_wins(self, player_num, update_now=True):
+        self.player_stats[player_num][2].fill((255, 255, 255, 255*VIEW_TRANSPARENT))
+        rendered_text = self.player_font.render(str(self.players[player_num].score), True,
+                                                (255, 255, 255)).convert_alpha()
+        self.player_stats[player_num][2].blit(rendered_text, (0, 0))
+        if update_now:
+            self.update_table.emit()
+
+    def update_all_players(self, role=False, wins=True):
+        for i in range(4):
+            if wins:
+                self.update_player_wins(i, update_now=False)
+            if role:
+                self.update_players_role(i, update_now=False)
+        self.update_table.emit()
+
+    def update_team_scores(self):
+        if self.table_status['partner reveal']:
+            self.write_message("Defender: {0:d}, Attacker: {1:d}\n".format(self.table_status['defender']['wins'],
+                                                                         self.table_status['attacker']['wins']),
+                               line=2)
+        else:
+        self.write_message("Defender: {0:d}?, Attacker: ?\n".format(self.table_status['defender']['wins']),
+                               line=2)
+
 
     def get_pos(self):
         return self.x, self.y
@@ -220,14 +258,15 @@ class Table:
             self.game_state = GameState.PLAYING
 
         elif self.game_state == GameState.PLAYING:
+            self.update_team_scores()
             while self.current_round < 13:
                 self.play_a_round()
                 self.current_round += 1
-            self.write_message("Game Set")
+            self.write_message("Game Set! Press P to play again!")
+            self.ongoing = False
             self.game_state = GameState.ENDING
         else:
             self.reset_game()
-            self.current_round = 0
             self.game_state = GameState.DEALING
 
     def shuffle_and_deal(self):
@@ -308,14 +347,6 @@ class Table:
 
         # Set the roles of the players
         self.players[current_player].role = PlayerRole.DEFENDER
-        for _ in range(3):
-            current_player += 1
-            current_player %= 4
-            is_partner, _ = self.players[current_player].check_card_in(self.table_status["partner"])
-            if is_partner:
-                self.players[current_player].role = PlayerRole.DEFENDER
-            else:
-                self.players[current_player].role = PlayerRole.ATTACKER
 
         self.write_message('Bidding Complete')
 
@@ -336,6 +367,8 @@ class Table:
             if leading_card.value == self.table_status['partner']:
                 self.table_status['partner reveal'] = True
                 self.write_message("Partner Revealed!", delay_time=1)
+                self.reveal_all_roles(current_player)
+                self.update_all_players(role=True, wins=False)
         # Subsequent player make their plays, following suit if possible
         for _ in range(3):
             current_player += 1
@@ -350,6 +383,8 @@ class Table:
                 if card.value == self.table_status['partner']:
                     self.table_status['partner reveal'] = True
                     self.write_message("Partner Revealed!", delay_time=1)
+                    self.reveal_all_roles(current_player)
+                    self.update_all_players(role=True, wins=False)
             self.update_table.emit()
 
         # Once all player played, find out who wins
@@ -358,38 +393,59 @@ class Table:
         follow_suits = [suit == leading_card.suit() for suit in card_suits]
         trumps = [suit == self.table_status['trump suit'] for suit in card_suits]
         trump_played = any(trumps)
+
         # Break trump if the trump suit is played
         if not self.table_status['trump broken']:
             if trump_played:
                 self.table_status['trump broken'] = True
+                self.write_message("Trump Broken!", delay_time=1)
+
         # Determine which players to check for winner, and determine winner
         valid_nums = [card_nums[i] * ((follow_suits[i] and not trump_played) or trumps[i]) for i in range(4)]
         winning_player = valid_nums.index(max(valid_nums))
         self.write_message("Player {0:d} wins!\n".format(winning_player), delay_time=1)
+        self.players[winning_player].score += 1
+        self.update_player_wins(winning_player)
+
         # Clean up the cards, update score, set the next leading player, update round history
         for deck in self.players_playzone:
             self.discard_deck.append(deck.remove_card())
 
         if self.players[winning_player].role == PlayerRole.DEFENDER:
             self.table_status['defender']['wins'] += 1
-        else:
+        elif self.players[winning_player].role == PlayerRole.ATTACKER:
             self.table_status['attacker']['wins'] += 1
 
         self.table_status['leading player'] = winning_player
         self.table_status['round history'].append(copy.copy(self.table_status["played cards"]))
-        self.write_message("Defender:{0:d}, Attacker:{1:d}\n".format(self.table_status['defender']['wins'],
-                                                                     self.table_status['attacker']['wins']),
-                           line=2)
+        self.update_team_scores()
 
         # TODO: Add function to reflect the score on the screen. Kinda added
 
         self.update_table.emit()
 
+    def reveal_all_roles(self, partner):
+        self.players[partner].role = PlayerRole.DEFENDER
+        self.table_status['defender']['wins'] += self.players[partner].score
+        for i in range(4):
+            if self.players[i].role == PlayerRole.UNKNOWN:
+                self.players[i].role = PlayerRole.ATTACKER
+                self.table_status['attacker']['wins'] += self.players[i].score
+
     def reset_game(self):
         for player in self.players:
-            print(len(player.cards))
             while not player.is_empty():
                 self.discard_deck.append(player.remove_card())
+            player.score = 0
+            player.role = PlayerRole.UNKNOWN
+
+        for i in range(4):
+            self.update_players_role(i)
+            self.update_player_wins(i)
+        self.table_status['defender']['wins'] = 0
+        self.table_status['attacker']['wins'] = 0
+        self.current_round = 0
+        self.write_message("", line=2)
         print(len(self.discard_deck))
         self.update_table.emit()
 
@@ -418,6 +474,7 @@ class Player(cards.Deck):
         self.role = PlayerRole.UNKNOWN
         self.AI = ai_component
         self._table_status = None  # This is found in Table and updated through Table
+        self.score = 0
 
     def connect_to_table(self, table):
         self._table_status = table

@@ -83,14 +83,16 @@ class Deck():
         self.cards = []
 
         if self.is_horizontal():
-            self.background = pygame.Surface((self.length, self.width))
-            self.background.fill((0, 255, 0))
-            self.background = self.background.convert()
+            self.background = pygame.Surface((self.length, self.width), pygame.SRCALPHA)
+            pygame.draw.rect(self.background, (255, 255, 255), self.background.get_rect(), 5)
+            #self.background.fill((0, 255, 0))
+            self.background = self.background.convert_alpha()
             self.deck_surface = self.background.copy()
         else:
-            self.background = pygame.Surface((self.width, self.length))
-            self.background.fill((0, 255, 0))
-            self.background = self.background.convert()
+            self.background = pygame.Surface((self.width, self.length), pygame.SRCALPHA)
+            pygame.draw.rect(self.background, (255, 255, 255), self.background.get_rect(), 5)
+            #self.background.fill((0, 255, 0))
+            self.background = self.background.convert_alpha()
             self.deck_surface = self.background.copy()
 
         self._layer = 1
@@ -169,6 +171,7 @@ class Deck():
         self.update_deck_display()
 
     def update_deck_display(self):
+        self.deck_surface.fill((0, 0, 0, 0))
         self.deck_surface.blit(self.background, (0, 0))
         if not self.is_empty():
             if self.draw_from_last:
@@ -177,7 +180,6 @@ class Deck():
             else:
                 for card in self.cards:
                     self.deck_surface.blit(card.image, (card.x, card.y))
-
 
     def remove_card(self, pos=-1):
         if not self.is_empty():
