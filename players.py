@@ -22,10 +22,12 @@ class GameState(Enum):
     PLAYING = 3
     ENDING = 4
 
+
 class PlayerRole(Enum):
     UNKNOWN = 0
     ATTACKER = 1
     DEFENDER = 2
+
 
 class Table:
     """
@@ -91,7 +93,8 @@ class Table:
 
         w_deck = min(self.height, self.width) * 0.15
         l_deck = min(self.width, self.height) * 0.7
-        self.discard_deck = cards.prepare_playing_cards(int(w_deck), int(w_deck))  # This is not a deck as it will never be drawn
+        # This is not a deck as it will never be drawn
+        self.discard_deck = cards.prepare_playing_cards(int(w_deck), int(w_deck))
 
         playerx = ((self.width - l_deck)//2,
                    0,
@@ -104,6 +107,36 @@ class Table:
 
         spacing = 20
 
+        playfield_margins = 10
+        margins_with_w_deck = w_deck + playfield_margins
+        playfield_x = margins_with_w_deck
+        playfield_y = margins_with_w_deck
+        playfield_width = self.width - margins_with_w_deck * 2
+        playfield_height = self.height - margins_with_w_deck * 2
+
+        playdeckx = (playfield_x + (playfield_width - margins_with_w_deck) // 2,
+                     playfield_x,
+                     playfield_x + (playfield_width - margins_with_w_deck) // 2,
+                     playfield_x + playfield_width - margins_with_w_deck)
+        playdecky = (playfield_y + playfield_height - margins_with_w_deck,
+                     playfield_y + (playfield_height - margins_with_w_deck) // 2,
+                     playfield_y,
+                     playfield_y + (playfield_height - margins_with_w_deck) // 2)
+
+        stats_width = 100
+        self.stats_height = 100
+        stats_spacing = 10
+        self.player_stats_x = (playdeckx[0] - stats_width - stats_spacing,
+                               playdeckx[1],
+                               playdeckx[2] + w_deck + stats_spacing,
+                               playdeckx[3])
+        self.player_stats_y = (playdecky[0] + w_deck - self.stats_height,
+                               playdecky[1] - self.stats_height - stats_spacing,
+                               playdecky[2],
+                               playdecky[3] + w_deck + stats_spacing)
+
+        self.player_stats = [[], [], [], []]
+
         for i in range(4):
             vert = i % 2 == 1
             self.players.append(Player(playerx[i], playery[i],
@@ -111,44 +144,11 @@ class Table:
                                        spacing, vert_orientation=vert,
                                        deck_reveal=cards.DeckReveal.HIDE_ALL))
             self.players[i].connect_to_table(self.table_status)
-            if i>0:
+            if i > 0:
                 self.players[i].add_ai(ai.RandomAI(self.table_status))
 
-
-        playfield_margins = 10
-        margins_with_w_deck = w_deck + playfield_margins
-        playfield_x = margins_with_w_deck
-        playfield_y = margins_with_w_deck
-        playfield_width = self.width - margins_with_w_deck* 2
-        playfield_height = self.height - margins_with_w_deck* 2
-
-        playdeckx = (playfield_x + (playfield_width - margins_with_w_deck) // 2,
-                   playfield_x,
-                   playfield_x + (playfield_width - margins_with_w_deck) // 2,
-                   playfield_x + playfield_width - margins_with_w_deck)
-        playdecky = (playfield_y + playfield_height - margins_with_w_deck,
-                   playfield_y + (playfield_height - margins_with_w_deck) // 2,
-                   playfield_y,
-                   playfield_y + (playfield_height - margins_with_w_deck) // 2)
-
-        stats_width = 100
-        self.stats_height = 100
-        self.player_stats_x = ((self.width - l_deck) // 2,
-                               w_deck,
-                               (self.width + l_deck) // 2 - stats_width,
-                               self.width - w_deck - stats_width)
-        self.player_stats_y = ((self.height - w_deck - self.stats_height),
-                               w_deck,
-                               w_deck,
-                               self.height - w_deck - self.stats_height)
-
-        self.player_stats = [[], [], [], []]
-
-
-
-        for i in range(4):
             self.players_playzone.append(cards.Deck(playdeckx[i], playdecky[i],
-                                           w_deck, w_deck, 0))
+                                         w_deck, w_deck, 0))
             for j in range(3):
                 self.player_stats[i].append(pygame.Surface((stats_width, self.stats_height/3), pygame.SRCALPHA))
 
@@ -160,15 +160,12 @@ class Table:
         self.announcer_y = playfield_y + announcer_spacing
         self.announcer_width = playfield_width - 2 * announcer_spacing
         self.announcer_height = playfield_height - 2 * announcer_spacing
-        #self.announcer = pygame.Surface((announcer_width, self.announcer_height), pygame.SRCALPHA)
         self.announcer_line = []
         for i in range(3):
             surf = pygame.Surface((self.announcer_width, self.announcer_height/3), pygame.SRCALPHA)
             self.announcer_line.append(surf)
 
-
-
-        #self.write_message("Testing....")
+        self.write_message("Press P to play!")
 
         self.ongoing = False
 
@@ -176,6 +173,8 @@ class Table:
         """
         Write a message into the center board surface (announcer)
         :param text: String to be displayed on the center board
+        :param delay_time: How much delay to put once the string is display
+        :param line: Which line of the announcer to write to
         :return: None
         """
         print(text)
@@ -201,8 +200,7 @@ class Table:
         What takes place in the state should be in a function.
         :return: None
         """
-        # TODO: slow down the game a bit using sleep
-        #while(True):
+        # TODO: Adjust the timing of sleep
         if self.game_state == GameState.DEALING:
             self.shuffle_and_deal()
             self.write_message("Shuffle Complete!")
@@ -271,8 +269,8 @@ class Table:
         first_player = True  # Starting bidder "privilege" to raise the starting bid
         while passes < NUM_OF_PLAYERS - 1:
             print("Player {0:d}\n-----".format(current_player))
-            self.write_message("Current Bid: {0:d}".format(self.table_status["bid"]),line=1)
-            print('Bid Leader: Player {0:d}'.format((current_player-passes-1*(not first_player))% 4))
+            self.write_message("Current Bid: {0:d}".format(self.table_status["bid"]), line=1)
+            print('Bid Leader: Player {0:d}'.format((current_player-passes-1*(not first_player)) % 4))
             print("Passes: {0:d}".format(passes))
 
             player_bid = self.players[current_player].make_decision(self.game_state, 0)
@@ -304,7 +302,7 @@ class Table:
         if self.table_status['trump suit'] == 5:
             self.table_status["leading player"] = current_player
         else:
-            self.table_status["leading player"] = (current_player +1) % 4
+            self.table_status["leading player"] = (current_player + 1) % 4
         self.table_status['defender']['target'] = self.table_status["bid"] // 10 + 6
         self.table_status['attacker']['target'] = 14 - self.table_status['defender']['target']
 
@@ -354,7 +352,6 @@ class Table:
                     self.write_message("Partner Revealed!", delay_time=1)
             self.update_table.emit()
 
-        #time.sleep(1)
         # Once all player played, find out who wins
         card_suits = [card.suit() for card in self.table_status["played cards"]]
         card_nums = [card.number() for card in self.table_status["played cards"]]
@@ -381,9 +378,10 @@ class Table:
         self.table_status['leading player'] = winning_player
         self.table_status['round history'].append(copy.copy(self.table_status["played cards"]))
         self.write_message("Defender:{0:d}, Attacker:{1:d}\n".format(self.table_status['defender']['wins'],
-                                                        self.table_status['attacker']['wins']), line=2)
+                                                                     self.table_status['attacker']['wins']),
+                           line=2)
 
-        # TODO: Add function to reflect the score on the screen
+        # TODO: Add function to reflect the score on the screen. Kinda added
 
         self.update_table.emit()
 
@@ -419,7 +417,7 @@ class Player(cards.Deck):
 
         self.role = PlayerRole.UNKNOWN
         self.AI = ai_component
-        self._table_status = None # This is found in Table and updated through Table
+        self._table_status = None  # This is found in Table and updated through Table
 
     def connect_to_table(self, table):
         self._table_status = table
@@ -519,7 +517,7 @@ class Player(cards.Deck):
         while True:
             # TODO: Make a more natural input parsing
             play = input("Please play a card. Enter suit number + card number\n"
-                            "i.e 412 is Spade Queen, 108 is Clubs 8, 314 is Hearts Ace\n")
+                         "i.e 412 is Spade Queen, 108 is Clubs 8, 314 is Hearts Ace\n")
             if play == "v":
                 pprint.pprint(self._table_status)
             else:
@@ -582,13 +580,12 @@ class Player(cards.Deck):
         return True
 
 
-
 class MainPlayer(cards.PlayerDeck):
     def __init__(self, *args, ai_component=None, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.AI = ai_component
-        self.table_status = None # This is found in Table and updated through Table
+        self.table_status = None  # This is found in Table and updated through Table
 
     def connect_to_table(self, table):
         self.table_status = table
@@ -604,6 +601,7 @@ class MainPlayer(cards.PlayerDeck):
 
     def check_for_valid_moves(self):
         pass
+
 
 class TestView(view.PygView):
 
@@ -635,13 +633,12 @@ class TestView(view.PygView):
                         print('add cards')
                         pass
 
-            milliseconds = self.clock.tick(self.fps)
-            #self.playtime += milliseconds / 1000.0
+            # milliseconds = self.clock.tick(self.fps)
+            # self.playtime += milliseconds / 1000.0
 
-            #self.draw_function()
+            # self.draw_function()
 
         pygame.quit()
-
 
 
 if __name__ == '__main__':
