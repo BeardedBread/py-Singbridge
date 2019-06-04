@@ -31,9 +31,9 @@ class RandomAI:
             current_round_bid = self.table_status["bid"] // 10
             current_suit_bid = self.table_status["bid"] % 10
             bid_threshold = int(current_round_bid*1.5 + current_suit_bid*0.5)
-            gen_bid = random.randint(1, bid_threshold)
+            gen_bid = random.randint(0, bid_threshold)
             print(gen_bid)
-            if gen_bid == 1:
+            if gen_bid <= 1:
                 if current_suit_bid == 5:
                     return (current_round_bid+1)*10 + 1
                 else:

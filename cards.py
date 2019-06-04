@@ -292,7 +292,7 @@ class PlayerDeck(Deck):
          pass
 
 
-DATA_FOLDER = "data"
+DATA_FOLDER = "resource"
 
 
 def prepare_playing_cards(display_w, display_h):
@@ -307,7 +307,7 @@ def prepare_playing_cards(display_w, display_h):
     #    card_img = pygame.image.load(os.path.join(DATA_FOLDER, 'diamond.jpg'))
     #except:
     #    raise Exception("Cannot load image")  # print error message and exit program
-    card_sprites = SpriteSheet(os.path.join(DATA_FOLDER, 'card_spritesheet_3.png'))
+    card_sprites = SpriteSheet(os.path.join(DATA_FOLDER, 'card_spritesheet.png'))
     all_cards = []
     offset = 0
     spacing = 0
@@ -373,6 +373,7 @@ class test_screen(view.PygView):
         super().__init__(*args, **kwargs)
 
         all_cards = prepare_playing_cards(50, 75)
+        self.test_card = all_cards[15]
         self.test_deck = Deck(100, 100, 200, 100, 25)
         self.test_deck.add_card(all_cards[0])
         self.test_deck.add_card(all_cards[13])
@@ -380,7 +381,7 @@ class test_screen(view.PygView):
         self.test_deck.add_card(all_cards[51])
 
     def draw_function(self):
-        #self.screen.blit(self.test_card.image, self.test_card.get_pos())
+        self.screen.blit(self.test_card.image, self.test_card.get_pos())
         self.screen.blit(self.test_deck.deck_surface, self.test_deck.get_pos())
 
     def run(self):
@@ -411,7 +412,6 @@ class test_screen(view.PygView):
             self.screen.blit(self.background, (0, 0))
 
         pygame.quit()
-
 
 
 if __name__ == '__main__':

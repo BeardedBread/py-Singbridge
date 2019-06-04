@@ -352,9 +352,9 @@ class Table:
         msg = "Current Bid: {0:d} {1:s}".format(self.table_status["bid"] // 10,
                                                 cards.get_suit_string(self.table_status["bid"] % 10))
         self.write_message(msg, line=1, delay_time=0)
-        msg = 'Bid Leader: Player {0:d}'.format((current_player - passes - 1 * (not first_player)) % 4)
-        self.write_message(msg, line=2)
         self.display_current_player(current_player)
+        msg = 'Bid Leader: Player {0:d}'.format((current_player - passes - 1 * (not first_player)) % 4)
+        self.write_message(msg, line=2, delay_time=1)
 
         while passes < NUM_OF_PLAYERS - 1:
             player_bid = self.players[current_player].make_decision(self.game_state, 0)
@@ -377,7 +377,7 @@ class Table:
             msg = 'Bid Leader: Player {0:d}'.format((current_player - passes - 1 * (not first_player)) % 4)
             self.write_message(msg, line=2, update_now=False)
             self.display_current_player(current_player)
-            time.sleep(1)
+            time.sleep(0.5)
 
         self.write_message("Player {0:d} is the bid winner!".format(current_player), delay_time=1.5)
 
