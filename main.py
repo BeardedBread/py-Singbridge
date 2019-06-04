@@ -5,14 +5,12 @@ import random
 import pickle
 import sys
 
-AUTOPLAY = False
-
-
 class GameScreen(view.PygView):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, autoplay=False, view_all_cards=False, **kwargs):
         super().__init__(*args, **kwargs)
-        self.table = players.Table(0, 0, self.width, self.height, (0, 32, 0), autoplay=AUTOPLAY)
+        self.table = players.Table(0, 0, self.width, self.height, (0, 32, 0),
+                                   autoplay=autoplay, view_all_cards=view_all_cards)
         self.table.update_table.connect(self.draw_table)
         self.draw_table()
 
@@ -65,19 +63,32 @@ class GameScreen(view.PygView):
 
 
 if __name__ == '__main__':
+    AUTOPLAY = False
+    VIEW_ALL_CARDS = False
 
     if len(sys.argv) > 1:
-        if sys.argv[1] == "--seed":
-            with open(sys.argv[2], 'rb') as f:
-                # The protocol version used is detected automatically, so we do not
-                # have to specify it.
-                rng_state = pickle.load(f)
-            random.setstate(rng_state)
+        prev_command = ""
+        for command in sys.argv[1:]:
+            if prev_command == "--seed" or prev_command == "-s":
+                try:
+                    with open(command, 'rb') as f:
+                        # The protocol version used is detected automatically, so we do not
+                        # have to specify it.
+                        rng_state = pickle.load(f)
+                    random.setstate(rng_state)
+                except:
+                    print("RNG File not Found")
+            if command == "--view-all" or command == "-va":
+                VIEW_ALL_CARDS = True
+            if command == "--auto" or command == "-a":
+                AUTOPLAY = True
+            prev_command = command
 
     rng_state = random.getstate()
     with open('last_game_rng.rng', 'wb') as f:
         pickle.dump(rng_state, f)
 
-    main_view = GameScreen(800, 600, clear_colour=(255, 0, 0))
+    main_view = GameScreen(800, 600, clear_colour=(255, 0, 0),
+                           autoplay=AUTOPLAY, view_all_cards=VIEW_ALL_CARDS)
 
     main_view.run()

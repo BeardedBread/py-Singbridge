@@ -14,7 +14,7 @@ STARTING_HAND = 13
 HIGHEST_CARD = 414
 LOWEST_CARD = 102
 VIEW_TRANSPARENT = False
-VIEW_ALL_CARDS = False
+
 
 class GameState(Enum):
     DEALING = 0
@@ -67,7 +67,7 @@ class Table:
     """
     update_table = Signal()
 
-    def __init__(self, x, y, width, height, clear_colour, autoplay=False):
+    def __init__(self, x, y, width, height, clear_colour, autoplay=False, view_all_cards=False):
         # TODO: Reduce the amount of update_table call
         self.x = x
         self.y = y
@@ -148,7 +148,7 @@ class Table:
                 spacing = v_spacing
 
             reveal_mode = cards.DeckReveal.HIDE_ALL
-            if i == 0 or VIEW_ALL_CARDS:
+            if i == 0 or view_all_cards:
                 reveal_mode = cards.DeckReveal.SHOW_ALL
             self.players.append(Player(playerx[i], playery[i],
                                        l_deck, w_deck,
