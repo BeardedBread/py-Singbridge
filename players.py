@@ -14,6 +14,7 @@ STARTING_HAND = 13
 HIGHEST_CARD = 414
 LOWEST_CARD = 102
 VIEW_TRANSPARENT = False
+VIEW_ALL_CARDS = False
 
 class GameState(Enum):
     DEALING = 0
@@ -145,10 +146,14 @@ class Table:
             spacing = h_spacing
             if vert:
                 spacing = v_spacing
+
+            reveal_mode = cards.DeckReveal.HIDE_ALL
+            if i == 0 or VIEW_ALL_CARDS:
+                reveal_mode = cards.DeckReveal.SHOW_ALL
             self.players.append(Player(playerx[i], playery[i],
                                        l_deck, w_deck,
                                        spacing, vert_orientation=vert,
-                                       deck_reveal=cards.DeckReveal.HIDE_ALL))
+                                       deck_reveal=reveal_mode))
             self.players[i].connect_to_table(self.table_status)
             if i > 0:
                 self.players[i].add_ai(ai.RandomAI(self.table_status))

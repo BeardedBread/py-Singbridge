@@ -22,6 +22,7 @@ INPUT_SYMBOLS = {"c": 100, "d": 200, "h": 300, "s": 400, "n":500, "a": 14,
                  "8": 8, "9": 9, "10": 10, "j": 11, "q": 12, "k": 13,
                  }
 
+
 class DeckReveal(Enum):
     SHOW_ALL = 1
     HIDE_ALL = 2
@@ -36,7 +37,7 @@ class DeckSort(Enum):
 
 class Card(pygame.sprite.Sprite):
 
-    def __init__(self, x, y, width, height, value, hidden=False, image_data=None, parent=None):
+    def __init__(self, x, y, width, height, value, hidden=False, image_data=None, backimage_data=None, parent=None):
         super().__init__()
         self.x = x
         self.y = y
@@ -48,10 +49,16 @@ class Card(pygame.sprite.Sprite):
         self.hidden = hidden
         self.parent = parent
 
+        self.image = None
+        self.backimage = None
+
         if image_data:
             self.image = image_data
             self.image = pygame.transform.scale(self.image, (self.width, self.height))
 
+        if backimage_data:
+            self.backimage = backimage_data
+            self.backimage = pygame.transform.scale(self.backimage, (self.width, self.height))
         # Display Value for Debug Purposes
         #myfont = pygame.font.SysFont("None", 16)
         #mytext = myfont.render(str(self.value), True, (0, 0, 0))
@@ -147,7 +154,11 @@ class Deck():
         self.set_card_positions()
 
     def set_card_positions(self):
-        # TODO: Fix vertical card positioning
+        """
+        Calculate the card positions, given the spacing.
+        If there is too many cards for the given spacing, the spacing is adjusted to fit.
+        :return: None
+        """
         number_of_cards = len(self.cards)
 
         if number_of_cards > 0:
@@ -159,7 +170,6 @@ class Deck():
                         card.x = start_point + self.default_spacing * i
                         card.y = (self.width - self.cards[0].height) / 2
                 else:
-                    # TODO: make sure that deck length is always longer than card width
                     adjusted_spacing = (self.length - self.cards[0].width)/(number_of_cards-1)
 
                     start_point = 0
@@ -171,7 +181,6 @@ class Deck():
 
                 if total_card_length <= self.length:
                     start_point = (self.length - total_card_length)/2
-                    #start_point = 0
                     for (i, card) in enumerate(self.cards):
                         card.y = start_point + self.default_spacing * i
                         card.x = (self.width - self.cards[0].width) / 2
@@ -186,17 +195,33 @@ class Deck():
         self.update_deck_display()
 
     def update_deck_display(self):
+        """
+        Blits the cards onto the deck surface. Called when the deck is modified.
+        :return: None
+        """
         self.deck_surface.fill(CLEARCOLOUR)
         self.deck_surface.blit(self.background, (0, 0))
         if not self.is_empty():
             if self.draw_from_last:
                 for card in reversed(self.cards):
-                    self.deck_surface.blit(card.image, (card.x, card.y))
+                    if self.deck_reveal == DeckReveal.SHOW_ALL:
+                        self.deck_surface.blit(card.image, (card.x, card.y))
+                    elif self.deck_reveal == DeckReveal.HIDE_ALL:
+                        self.deck_surface.blit(card.backimage, (card.x, card.y))
             else:
                 for card in self.cards:
-                    self.deck_surface.blit(card.image, (card.x, card.y))
+                    if self.deck_reveal == DeckReveal.SHOW_ALL:
+                        self.deck_surface.blit(card.image, (card.x, card.y))
+                    elif self.deck_reveal == DeckReveal.HIDE_ALL:
+                        self.deck_surface.blit(card.backimage, (card.x, card.y))
 
     def remove_card(self, pos=-1):
+        """
+        Remove a card from the deck.
+        Check first if the card is in deck to get the position
+        :param pos: Position of the card to be removed
+        :return: Card
+        """
         if not self.is_empty():
             if pos < 0:
                 card = self.cards.pop()
@@ -289,6 +314,7 @@ def prepare_playing_cards(display_w, display_h):
     width = 71
     height = 96
     suits_position = [2, 3, 1, 0]
+    card_backimg = card_sprites.image_at((offset + (width+spacing)*3, 5*(height+spacing) + offset, width, height))
     for i in range(4):
         y = suits_position[i] * (height+spacing) + offset
         for j in range(13):
@@ -297,7 +323,8 @@ def prepare_playing_cards(display_w, display_h):
             else:
                 x = offset
             card_img = card_sprites.image_at((x, y, width, height))
-            all_cards.append(Card(0, 0, display_w, display_h, (i+1)*100 + j+2, image_data=card_img))
+            all_cards.append(Card(0, 0, display_w, display_h, (i+1)*100 + j+2,
+                                  image_data=card_img, backimage_data=card_backimg))
 
     return all_cards
 
