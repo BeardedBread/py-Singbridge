@@ -9,7 +9,11 @@ import os
 import random
 from enum import Enum
 
-# Consider doing Enums for Card Suits?
+# LUT for mapping int to cards symbols
+CARDS_SYMBOLS = {14: "A", 2: "2", 3: "3", 4: "4", 5: "5", 6: "6", 7: "7",
+                 8: "8", 9: "9", 10: "10", 11: "J", 12: "Q", 13: "K",
+                 100: "Clubs", 200: "Diamonds", 300: "Hearts", 400: "Spades", 500: "No Trump",
+                 "C": 100, "D": 200, "H": 300, "S": 400, "A": 14}
 
 
 class DeckReveal(Enum):
@@ -46,7 +50,7 @@ class Card(pygame.sprite.Sprite):
         myfont = pygame.font.SysFont("None", 16)
         mytext = myfont.render(str(self.value), True, (0, 0, 0))
         mytext = mytext.convert_alpha()
-        self.image.blit(mytext, (0,0))
+        self.image.blit(mytext, (0, 0))
 
         self._layer = 0
 
@@ -258,6 +262,17 @@ def get_card_suit(value):
 
 def get_card_number(value):
     return value % 100
+
+
+def get_card_string(value):
+    suit = get_card_suit(value) * 100
+    num = get_card_number(value)
+    return CARDS_SYMBOLS[num] + ' ' + CARDS_SYMBOLS[suit]
+
+
+def get_suit_string(value):
+    return CARDS_SYMBOLS[value*100]
+
 
 class test_screen(view.PygView):
 

@@ -5,11 +5,14 @@ import random
 import pickle
 import sys
 
+AUTOPLAY = False
+
+
 class GameScreen(view.PygView):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.table = players.Table(0, 0, self.width, self.height, (0, 32, 0), autoplay=True)
+        self.table = players.Table(0, 0, self.width, self.height, (0, 32, 0), autoplay=AUTOPLAY)
         self.table.update_table.connect(self.draw_table)
         self.draw_table()
 
