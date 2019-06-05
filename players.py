@@ -186,6 +186,10 @@ class Table:
 
         self.ongoing = False
 
+        self.passes = 0
+        self.current_player = 0
+        self.first_player = False
+
     def center_text_on_surface(self, surf, rendered_text, clear_colour):
         line_center = surf.get_rect().center
         text_rect = rendered_text.get_rect(center=line_center)
@@ -294,21 +298,21 @@ class Table:
             else:
                 self.write_message('No Reshuffle needed!')
                 self.game_state = GameState.BIDDING
-
+                self.write_message("Start to Bid")
+                self.prepare_bidding()
         elif self.game_state == GameState.BIDDING:
-            self.write_message("Start to Bid")
-            self.start_bidding()
-            self.game_state = GameState.PLAYING
+            bid_complete = self.start_bidding()
+            if bid_complete:
+                self.game_state = GameState.PLAYING
+                self.update_all_players(role=True, wins=True)
+                self.update_team_scores()
 
         elif self.game_state == GameState.PLAYING:
-            self.update_all_players(role=True, wins=True)
-            self.update_team_scores()
-            while self.current_round < 13:
-                self.play_a_round()
-                self.current_round += 1
-            self.write_message("Game Set! Press P to play again!")
-            self.ongoing = False
-            self.game_state = GameState.ENDING
+            self.play_a_round()
+            if self.current_round == 13:
+                self.write_message("Game Set! Press P to play again!")
+                self.ongoing = False
+                self.game_state = GameState.ENDING
         else:
             self.reset_game()
             self.game_state = GameState.DEALING
@@ -338,148 +342,149 @@ class Table:
                 self.write_message("Low points detected in Player {0:d}! ".format(i))
                 return player.make_decision(self.game_state, 0)
 
-    def start_bidding(self):
-        """
-        The bidding procedure.
-        :return:
-        """
+    def prepare_bidding(self):
         # Randomly pick a starting player, whom also is the current bid winner
-        current_player = random.randint(1, NUM_OF_PLAYERS) - 1
-        print("Starting Player: {0:d}".format(current_player))
-        passes = 0
+        self.current_player = random.randint(1, NUM_OF_PLAYERS) - 1
+        print("Starting Player: {0:d}".format(self.current_player))
+        self.passes = 0
         self.table_status["bid"] = 11  # Lowest Bid: 1 Club by default
         first_player = True  # Starting bidder "privilege" to raise the starting bid
         msg = "Current Bid: {0:d} {1:s}".format(self.table_status["bid"] // 10,
                                                 cards.get_suit_string(self.table_status["bid"] % 10))
         self.write_message(msg, line=1, delay_time=0)
-        self.display_current_player(current_player)
-        msg = 'Bid Leader: Player {0:d}'.format((current_player - passes - 1 * (not first_player)) % 4)
+        self.display_current_player(self.current_player)
+        msg = 'Bid Leader: Player {0:d}'.format((self.current_player - self.passes - 1 * (not first_player)) % 4)
         self.write_message(msg, line=2, delay_time=1)
 
-        while passes < NUM_OF_PLAYERS - 1:
-            player_bid = self.players[current_player].make_decision(self.game_state, 0)
+    def start_bidding(self):
+        """
+        The bidding procedure.
+        :return: Whether bidding is completed
+        """
+        # Highest bid: 7 NoTrump. No further check required
+        if self.passes < NUM_OF_PLAYERS - 1 or self.table_status["bid"] == 75:
+            player_bid = self.players[self.current_player].make_decision(self.game_state, 0)
             if not player_bid:
-                if not first_player:  # Starting bidder pass do not count at the start
-                    passes += 1
+                if not self.first_player:  # Starting bidder pass do not count at the start
+                    self.passes += 1
             else:
                 self.table_status["bid"] = player_bid
-                passes = 0
-                if player_bid == 75:  # Highest bid: 7 NoTrump. No further check required
-                    break
+                self.passes = 0
 
-            if first_player:
-                first_player = False
-            current_player += 1
-            current_player %= 4
+            if self.first_player:
+                self.first_player = False
+            self.current_player += 1
+            self.current_player %= 4
             msg = "Current Bid: {0:d} {1:s}".format(self.table_status["bid"] // 10,
                                                     cards.get_suit_string(self.table_status["bid"] % 10))
             self.write_message(msg, line=1, update_now=False)
-            msg = 'Bid Leader: Player {0:d}'.format((current_player - passes - 1 * (not first_player)) % 4)
+            msg = 'Bid Leader: Player {0:d}'.format((self.current_player - self.passes
+                                                     - 1 * (not self.first_player)) % 4)
             self.write_message(msg, line=2, update_now=False)
-            self.display_current_player(current_player)
+            self.display_current_player(self.current_player)
             time.sleep(0.5)
-
-        self.write_message("Player {0:d} is the bid winner!".format(current_player), delay_time=1.5)
-
-        self.display_current_player(current_player)
-        # Ask for the partner card
-        self.table_status["partner"] = self.players[current_player].make_decision(self.game_state, 1)
-
-        # Setup the table status before the play starts
-        self.table_status['partner reveal'] = False
-        self.table_status["trump suit"] = self.table_status["bid"] % 10
-        self.table_status["trump broken"] = False
-        self.table_status['played cards'] = [0, 0, 0, 0]
-        if self.table_status['trump suit'] == 5:
-            self.table_status["leading player"] = current_player
+            return False
         else:
-            self.table_status["leading player"] = (current_player + 1) % 4
-        self.table_status['defender']['target'] = self.table_status["bid"] // 10 + 6
-        self.table_status['attacker']['target'] = 14 - self.table_status['defender']['target']
 
-        # Set the roles of the players
-        self.players[current_player].role = PlayerRole.DEFENDER
+            self.write_message("Player {0:d} is the bid winner!".format(self.current_player), delay_time=1.5)
 
-        self.write_message('Bidding Complete')
-        msg = 'Trump: {1:s}, Partner: {0:s}'.format(cards.get_card_string(self.table_status["partner"]),
-                                                    cards.get_suit_string(self.table_status['trump suit']))
-        self.write_message(msg, line=1)
+            self.display_current_player(self.current_player)
+            # Ask for the partner card
+            self.table_status["partner"] = self.players[self.current_player].make_decision(self.game_state, 1)
+
+            # Setup the table status before the play starts
+            self.table_status['partner reveal'] = False
+            self.table_status["trump suit"] = self.table_status["bid"] % 10
+            self.table_status["trump broken"] = False
+            self.table_status['played cards'] = [0, 0, 0, 0]
+            if self.table_status['trump suit'] == 5:
+                self.table_status["leading player"] = self.current_player
+            else:
+                self.table_status["leading player"] = (self.current_player + 1) % 4
+            self.table_status['defender']['target'] = self.table_status["bid"] // 10 + 6
+            self.table_status['attacker']['target'] = 14 - self.table_status['defender']['target']
+
+            # Set the roles of the players
+            self.players[self.current_player].role = PlayerRole.DEFENDER
+
+            self.write_message('Bidding Complete')
+            msg = 'Trump: {1:s}, Partner: {0:s}'.format(cards.get_card_string(self.table_status["partner"]),
+                                                        cards.get_suit_string(self.table_status['trump suit']))
+            self.write_message(msg, line=1)
+            return True
 
     def play_a_round(self):
         """
         Ask each player to play a valid card and determine the winner of the round
         :return: None
         """
-        # Leading player starts with the leading card, which determines the leading suit
-        current_player = self.table_status['leading player']
-        self.display_current_player(current_player)
-        leading_card = self.players[current_player].make_decision(self.game_state, 0)
-        self.table_status["played cards"][current_player] = leading_card
-        self.players_playzone[current_player].add_card(leading_card)
-        self.update_table.emit()
-        time.sleep(0.5)
-        if not self.table_status['partner reveal']:
-            if leading_card.value == self.table_status['partner']:
-                self.table_status['partner reveal'] = True
-                self.write_message("Partner Revealed!", delay_time=1)
-                self.reveal_all_roles(current_player)
-                self.update_all_players(role=True, wins=False)
-        # Subsequent player make their plays, following suit if possible
-        for _ in range(3):
-            current_player += 1
-            current_player %= 4
-            self.display_current_player(current_player)
-            print("Player {0:d}\n".format(current_player))
-            card = self.players[current_player].make_decision(self.game_state, 1)
-            self.players_playzone[current_player].add_card(card)
-            self.table_status["played cards"][current_player] = card
-
-            # Reveal the roles once the partner card is played
-            if not self.table_status['partner reveal']:
-                if card.value == self.table_status['partner']:
-                    self.table_status['partner reveal'] = True
-                    self.write_message("Partner Revealed!", delay_time=1)
-                    self.reveal_all_roles(current_player)
-                    self.update_all_players(role=True, wins=False)
+        if not any(self.table_status["played cards"]):
+            # Leading player starts with the leading card, which determines the leading suit
+            self.current_player = self.table_status['leading player']
+            self.display_current_player(self.current_player)
+            leading_card = self.players[self.current_player].make_decision(self.game_state, 0)
+            self.table_status["played cards"][self.current_player] = leading_card
+            self.players_playzone[self.current_player].add_card(leading_card)
             self.update_table.emit()
             time.sleep(0.5)
 
-        # Once all player played, find out who wins
-        card_suits = [card.suit() for card in self.table_status["played cards"]]
-        card_nums = [card.number() for card in self.table_status["played cards"]]
-        follow_suits = [suit == leading_card.suit() for suit in card_suits]
-        trumps = [suit == self.table_status['trump suit'] for suit in card_suits]
-        trump_played = any(trumps)
+        elif not all(self.table_status["played cards"]):
+            # Subsequent player make their plays, following suit if possible
+            self.display_current_player(self.current_player)
+            print("Player {0:d}\n".format(self.current_player))
+            card = self.players[self.current_player].make_decision(self.game_state, 1)
+            self.players_playzone[self.current_player].add_card(card)
+            self.table_status["played cards"][self.current_player] = card
+            time.sleep(0.5)
+        else:
+            # Once all player played, find out who wins
+            leading_card = self.table_status["played cards"][self.table_status['leading player']]
+            card_suits = [card.suit() for card in self.table_status["played cards"]]
+            card_nums = [card.number() for card in self.table_status["played cards"]]
+            follow_suits = [suit == leading_card.suit() for suit in card_suits]
+            trumps = [suit == self.table_status['trump suit'] for suit in card_suits]
+            trump_played = any(trumps)
 
-        # Break trump if the trump suit is played
-        if not self.table_status['trump broken']:
-            if trump_played:
-                self.table_status['trump broken'] = True
-                self.write_message("Trump Broken!", delay_time=1)
+            # Break trump if the trump suit is played
+            if not self.table_status['trump broken']:
+                if trump_played:
+                    self.table_status['trump broken'] = True
+                    self.write_message("Trump Broken!", delay_time=1)
 
-        # Determine which players to check for winner, and determine winner
-        valid_nums = [card_nums[i] * ((follow_suits[i] and not trump_played) or trumps[i]) for i in range(4)]
-        winning_player = valid_nums.index(max(valid_nums))
-        self.write_message("Player {0:d} wins!\n".format(winning_player), delay_time=1)
-        self.players[winning_player].score += 1
-        self.update_player_wins(winning_player)
+            # Determine which players to check for winner, and determine winner
+            valid_nums = [card_nums[i] * ((follow_suits[i] and not trump_played) or trumps[i]) for i in range(4)]
+            winning_player = valid_nums.index(max(valid_nums))
+            self.write_message("Player {0:d} wins!\n".format(winning_player), delay_time=1)
+            self.players[winning_player].score += 1
+            self.update_player_wins(winning_player)
 
-        # Clean up the cards, update score, set the next leading player, update round history
-        for deck in self.players_playzone:
-            self.discard_deck.append(deck.remove_card())
+            # Clean up the cards, update score, set the next leading player, update round history
+            for deck in self.players_playzone:
+                self.discard_deck.append(deck.remove_card())
 
-        if self.players[winning_player].role == PlayerRole.DEFENDER:
-            self.table_status['defender']['wins'] += 1
-        elif self.players[winning_player].role == PlayerRole.ATTACKER:
-            self.table_status['attacker']['wins'] += 1
+            if self.players[winning_player].role == PlayerRole.DEFENDER:
+                self.table_status['defender']['wins'] += 1
+            elif self.players[winning_player].role == PlayerRole.ATTACKER:
+                self.table_status['attacker']['wins'] += 1
 
-        self.table_status['leading player'] = winning_player
-        self.table_status['round history'].append(copy.copy(self.table_status["played cards"]))
-        self.update_team_scores()
+            self.table_status['leading player'] = winning_player
+            self.table_status['round history'].append(copy.copy(self.table_status["played cards"]))
+            self.update_team_scores()
+            self.table_status["played cards"] = [0]*4
+            self.current_round += 1
+            self.update_table.emit()
+            return
 
-        # TODO: Add function to reflect the score on the screen. Kinda added
+        if not self.table_status['partner reveal']:
+            leading_card = self.table_status["played cards"][self.table_status['leading player']]
+            if leading_card.value == self.table_status['partner']:
+                self.table_status['partner reveal'] = True
+                self.write_message("Partner Revealed!", delay_time=1)
+                self.reveal_all_roles(self.current_player)
+                self.update_all_players(role=True, wins=False)
 
-        self.update_table.emit()
+        self.current_player += 1
+        self.current_player %= 4
 
     def reveal_all_roles(self, partner):
         self.players[partner].role = PlayerRole.DEFENDER
@@ -501,6 +506,8 @@ class Table:
             self.update_player_wins(i)
         self.table_status['defender']['wins'] = 0
         self.table_status['attacker']['wins'] = 0
+        self.table_status["played cards"] = [0]*4
+        self.table_status['round history'] = []
         self.current_round = 0
         self.write_message("", line=1, update_now=False)
         self.write_message("", line=2)
