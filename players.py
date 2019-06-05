@@ -397,9 +397,9 @@ class Table:
             time.sleep(0.5)
             return False
         else:
-
-            self.write_message("Player {0:d} is the bid winner!".format(self.current_player), delay_time=1.5)
-
+            self.write_message("Player {0:d} is the bid winner!".format(self.current_player), delay_time=1)
+            msg = "Player {0:d} is calling a partner...".format(self.current_player)
+            self.write_message(msg, delay_time=1)
             self.display_current_player(self.current_player)
             # Ask for the partner card
             self.table_status["partner"] = self.players[self.current_player].make_decision(self.game_state, 1)
@@ -419,10 +419,10 @@ class Table:
             # Set the roles of the players
             self.players[self.current_player].role = PlayerRole.DEFENDER
 
-            self.write_message('Bidding Complete')
+            self.write_message('Bidding Complete', delay_time=0)
             msg = 'Trump: {1:s}, Partner: {0:s}'.format(cards.get_card_string(self.table_status["partner"]),
                                                         cards.get_suit_string(self.table_status['trump suit']))
-            self.write_message(msg, line=1)
+            self.write_message(msg, line=1, delay_time=1)
             return True
 
     def play_a_round(self):
