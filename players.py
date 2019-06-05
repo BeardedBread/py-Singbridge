@@ -118,21 +118,21 @@ class Table:
         v_spacing = 25
 
         # Middle playfield for announcer and player playing deck positioning
-        playfield_margins = 10
+        playfield_margins = 5
         margins_with_w_deck = w_deck + playfield_margins + game_margins
         playfield_x = margins_with_w_deck
         playfield_y = margins_with_w_deck
         playfield_width = self.width - margins_with_w_deck * 2
         playfield_height = self.height - margins_with_w_deck * 2
 
-        playdeckx = (playfield_x + (playfield_width - margins_with_w_deck) // 2,
+        playdeckx = (playfield_x + (playfield_width - w_deck) / 2,
                      playfield_x,
-                     playfield_x + (playfield_width - margins_with_w_deck) // 2,
-                     playfield_x + playfield_width - margins_with_w_deck)
-        playdecky = (playfield_y + playfield_height - margins_with_w_deck,
-                     playfield_y + (playfield_height - margins_with_w_deck) // 2,
+                     playfield_x + (playfield_width - w_deck) / 2,
+                     playfield_x + playfield_width - w_deck)
+        playdecky = (playfield_y + playfield_height - w_deck,
+                     playfield_y + (playfield_height - w_deck) / 2,
                      playfield_y,
-                     playfield_y + (playfield_height - margins_with_w_deck) // 2)
+                     playfield_y + (playfield_height - w_deck) / 2)
 
         # Player stats positioning
         stats_width = 100
@@ -359,12 +359,12 @@ class Table:
         print("Starting Player: {0:d}".format(self.current_player))
         self.passes = 0
         self.table_status["bid"] = 11  # Lowest Bid: 1 Club by default
-        first_player = True  # Starting bidder "privilege" to raise the starting bid
+        self.first_player = True  # Starting bidder "privilege" to raise the starting bid
         msg = "Current Bid: {0:d} {1:s}".format(self.table_status["bid"] // 10,
                                                 cards.get_suit_string(self.table_status["bid"] % 10))
         self.write_message(msg, line=1, delay_time=0)
         self.display_current_player(self.current_player)
-        msg = 'Bid Leader: Player {0:d}'.format((self.current_player - self.passes - 1 * (not first_player)) % 4)
+        msg = 'Bid Leader: Player {0:d}'.format((self.current_player - self.passes - 1 * (not self.first_player)) % 4)
         self.write_message(msg, line=2, delay_time=1)
 
     def start_bidding(self):
@@ -373,7 +373,7 @@ class Table:
         :return: Whether bidding is completed
         """
         # Highest bid: 7 NoTrump. No further check required
-        if self.passes < NUM_OF_PLAYERS - 1 or self.table_status["bid"] == 75:
+        if self.passes < NUM_OF_PLAYERS - 1 and self.table_status["bid"] < 75:
             player_bid = self.players[self.current_player].make_decision(self.game_state, 0)
             if not player_bid:
                 if not self.first_player:  # Starting bidder pass do not count at the start
@@ -382,10 +382,9 @@ class Table:
                 self.table_status["bid"] = player_bid
                 self.passes = 0
 
-            if self.first_player:
-                self.first_player = False
-            self.current_player += 1
-            self.current_player %= 4
+            if self.table_status["bid"] < 75:
+                self.current_player += 1
+                self.current_player %= 4
             msg = "Current Bid: {0:d} {1:s}".format(self.table_status["bid"] // 10,
                                                     cards.get_suit_string(self.table_status["bid"] % 10))
             self.write_message(msg, line=1, update_now=False)
@@ -393,6 +392,8 @@ class Table:
                                                      - 1 * (not self.first_player)) % 4)
             self.write_message(msg, line=2, update_now=False)
             self.display_current_player(self.current_player)
+            if self.first_player:
+                self.first_player = False
             time.sleep(0.5)
             return False
         else:
