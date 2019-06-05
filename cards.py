@@ -314,7 +314,7 @@ def prepare_playing_cards(display_w, display_h):
     width = 71
     height = 96
     suits_position = [2, 3, 1, 0]
-    card_backimg = card_sprites.image_at((offset + (width+spacing)*3, 5*(height+spacing) + offset, width, height))
+    card_backimg = card_sprites.image_at((offset + (width+spacing)*9, 5*(height+spacing) + offset, width, height))
     for i in range(4):
         y = suits_position[i] * (height+spacing) + offset
         for j in range(13):
