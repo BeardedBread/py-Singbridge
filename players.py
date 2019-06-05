@@ -13,7 +13,7 @@ NUM_OF_PLAYERS = 4
 STARTING_HAND = 13
 HIGHEST_CARD = 414
 LOWEST_CARD = 102
-VIEW_TRANSPARENT = False
+VIEW_TRANSPARENT = False  # Make the text box not transparent
 
 
 class GameState(Enum):
@@ -33,10 +33,11 @@ class PlayerRole(Enum):
 class Table:
     """
     A Table is the place where all actions takes place. It is essentially a FSM, doing different
-    routines at each state. It needs to keep track of the score, roles, and the rules. It needs
+    routines at each state. It needs to keep track of the score, roles, the rules, etc. It needs
     to ask each player for decisions and respond to them accordingly. The table will also need
     to inform any decision to the Main Screen so that it can update the screen to reflect that
-    change through the use of callbacks (Signal and Slot).
+    change through the use of callbacks (Signal and Slot). This call should be minimised by making
+    all the changes before calling to update the screen in one go.
 
     FSM cycles
     ---
@@ -80,6 +81,9 @@ class Table:
         # For gameplay
         self.game_state = GameState.DEALING
         self.current_round = 0
+        self.passes = 0
+        self.current_player = 0
+        self.first_player = False  # This is for bidding purposes
         self.players = []
         self.players_playzone = []
         # Table status will be made known to the player by reference
@@ -93,25 +97,29 @@ class Table:
         self.background.fill(clear_colour)
         self.background = self.background.convert()
 
+        # TODO: Update the drawing of the table?
+        # Prepare the card with dimensions
         w_deck = min(self.height, self.width) * 0.18
         l_deck = min(self.width, self.height) * 0.7
         # This is not a deck as it will never be drawn
         self.discard_deck = cards.prepare_playing_cards(int(w_deck*0.7), int(w_deck*0.9))
+        game_margins = 5
 
+        # Players' deck positioning
         playerx = ((self.width - l_deck)//2,
-                   0,
+                   game_margins,
                    (self.width - l_deck)//2,
-                   self.width - w_deck)
-        playery = (self.height - w_deck,
+                   self.width - w_deck - game_margins)
+        playery = (self.height - w_deck - game_margins,
                    (self.height - l_deck)//2,
-                   0,
+                   game_margins,
                    (self.height - l_deck)//2)
-
         h_spacing = 20
         v_spacing = 25
 
+        # Middle playfield for announcer and player playing deck positioning
         playfield_margins = 10
-        margins_with_w_deck = w_deck + playfield_margins
+        margins_with_w_deck = w_deck + playfield_margins + game_margins
         playfield_x = margins_with_w_deck
         playfield_y = margins_with_w_deck
         playfield_width = self.width - margins_with_w_deck * 2
@@ -126,6 +134,7 @@ class Table:
                      playfield_y,
                      playfield_y + (playfield_height - margins_with_w_deck) // 2)
 
+        # Player stats positioning
         stats_width = 100
         self.stats_height = 100
         stats_spacing = 10
@@ -141,6 +150,7 @@ class Table:
         self.player_stats = [[], [], [], []]
 
         # TODO: change surface to use colorkey, maybe, if the performance is tanked
+        # Prepare all the player surfaces
         for i in range(4):
             vert = i % 2 == 1
             spacing = h_spacing
@@ -167,8 +177,11 @@ class Table:
                 self.center_text_on_surface(surf, rendered_text,
                                             (255, 255, 255, 255 * VIEW_TRANSPARENT))
                 self.player_stats[i].append(surf)
+
         if autoplay:
             self.players[0].add_ai(ai.RandomAI(self.table_status))
+
+        # Announcer positioning and surface creation
         announcer_margins = 5
         announcer_spacing = announcer_margins + w_deck
         self.announcer_x = playfield_x + announcer_spacing
@@ -186,9 +199,7 @@ class Table:
 
         self.ongoing = False
 
-        self.passes = 0
-        self.current_player = 0
-        self.first_player = False
+
 
     def center_text_on_surface(self, surf, rendered_text, clear_colour):
         line_center = surf.get_rect().center
@@ -422,9 +433,9 @@ class Table:
             # Leading player starts with the leading card, which determines the leading suit
             self.current_player = self.table_status['leading player']
             self.display_current_player(self.current_player)
-            leading_card = self.players[self.current_player].make_decision(self.game_state, 0)
-            self.table_status["played cards"][self.current_player] = leading_card
-            self.players_playzone[self.current_player].add_card(leading_card)
+            card = self.players[self.current_player].make_decision(self.game_state, 0)
+            self.table_status["played cards"][self.current_player] = card
+            self.players_playzone[self.current_player].add_card(card)
         elif not all(self.table_status["played cards"]):
             # Subsequent player make their plays, following suit if possible
             self.display_current_player(self.current_player)
@@ -472,8 +483,7 @@ class Table:
             return
 
         if not self.table_status['partner reveal']:
-            leading_card = self.table_status["played cards"][self.table_status['leading player']]
-            if leading_card.value == self.table_status['partner']:
+            if card.value == self.table_status['partner']:
                 self.table_status['partner reveal'] = True
                 self.write_message("Partner Revealed!", delay_time=1)
                 self.reveal_all_roles(self.current_player)
@@ -519,7 +529,7 @@ class Player(cards.Deck):
     A player is essentially a Deck with decision making function or AI component if it is a bot
     that returns a valid action for the Table/Board.
 
-    The player has the knowledge of Table status in the form of a dictatary (as it is mutable, thus passed by ref)
+    The player has the knowledge of Table status in the form of a dictionary (as it is mutable, thus passed by ref)
     so all validation is done by the player
 
     Possible decisions, each decision has to be enum maybe:
@@ -592,7 +602,7 @@ class Player(cards.Deck):
 
             bid = cards.convert_bid_string(bid)
             if bid < 0:
-                print("Please enter integer only")
+                print("Error in processing bid")
                 continue
 
             if self._table_status["bid"] < bid:
@@ -610,7 +620,6 @@ class Player(cards.Deck):
         """
         current_card_values = self.get_deck_values()
         while True:
-            # TODO: Make a more natural input parsing
             partner = input("Please call your partner card. Enter card number + suit number \n"
                             "e.g. qs is Queen Spade, 8c is 8 Clubs, ah is Ace Hearts\n")
 
@@ -628,7 +637,6 @@ class Player(cards.Deck):
         :return: A valid Card
         """
         while True:
-            # TODO: Make a more natural input parsing
             play = input("Please play a card.Enter card number + suit number \n"
                          "e.g. qs is Queen Spade, 8c is 8 Clubs, ah is Ace Hearts\n")
             if play == "v":

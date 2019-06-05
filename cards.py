@@ -17,11 +17,11 @@ CARDS_SYMBOLS = {14: "A", 2: "2", 3: "3", 4: "4", 5: "5", 6: "6", 7: "7",
                  100: "Clubs", 200: "Diamonds", 300: "Hearts", 400: "Spades", 500: "No Trump",
                  }
 
-INPUT_SYMBOLS = {"c": 100, "d": 200, "h": 300, "s": 400, "n":500, "a": 14,
+INPUT_SYMBOLS = {"c": 100, "d": 200, "h": 300, "s": 400, "n": 500, "a": 14,
                  "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7,
                  "8": 8, "9": 9, "10": 10, "j": 11, "q": 12, "k": 13,
                  }
-
+BID_SYMBOLS = {"c": 100, "d": 200, "h": 300, "s": 400, "n": 500}
 
 class DeckReveal(Enum):
     SHOW_ALL = 1
@@ -353,19 +353,24 @@ def get_suit_string(value):
 
 
 def convert_input_string(string):
+    string = string.lower()
     try:
-        return INPUT_SYMBOLS[string[0:-1]] + INPUT_SYMBOLS[string[-1]]
+        if string[0:-1].isalnum() and string[-1].isalpha():
+            return INPUT_SYMBOLS[string[0:-1]] + INPUT_SYMBOLS[string[-1]]
+        return -1
     except KeyError:
         return -1
 
 
 def convert_bid_string(string):
+    string = string.lower()
     try:
-        return int(string[0])*10 + INPUT_SYMBOLS[string[1]]//100
+        if string[0].isdecimal() and string[1].isalpha():
+            return int(string[0])*10 + BID_SYMBOLS[string[1]]//100
+        return -1
     except KeyError:
         return -1
-    except ValueError:
-        return -1
+
 
 class test_screen(view.PygView):
 
