@@ -4,4 +4,4 @@ test*
 math_ext.py
 .idea
 __pycache__/
-*.rng
+last_game_rng.rng
