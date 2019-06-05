@@ -425,9 +425,6 @@ class Table:
             leading_card = self.players[self.current_player].make_decision(self.game_state, 0)
             self.table_status["played cards"][self.current_player] = leading_card
             self.players_playzone[self.current_player].add_card(leading_card)
-            self.update_table.emit()
-            time.sleep(0.5)
-
         elif not all(self.table_status["played cards"]):
             # Subsequent player make their plays, following suit if possible
             self.display_current_player(self.current_player)
@@ -435,7 +432,6 @@ class Table:
             card = self.players[self.current_player].make_decision(self.game_state, 1)
             self.players_playzone[self.current_player].add_card(card)
             self.table_status["played cards"][self.current_player] = card
-            time.sleep(0.5)
         else:
             # Once all player played, find out who wins
             leading_card = self.table_status["played cards"][self.table_status['leading player']]
@@ -485,6 +481,8 @@ class Table:
 
         self.current_player += 1
         self.current_player %= 4
+        self.update_table.emit()
+        time.sleep(0.5)
 
     def reveal_all_roles(self, partner):
         self.players[partner].role = PlayerRole.DEFENDER
