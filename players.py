@@ -151,7 +151,7 @@ class Table:
 
         # TODO: change surface to use colorkey, maybe, if the performance is tanked
         # Prepare all the player surfaces
-        for i in range(4):
+        for i in range(NUM_OF_PLAYERS):
             vert = i % 2 == 1
             spacing = h_spacing
             if vert:
@@ -252,7 +252,7 @@ class Table:
             self.update_table.emit()
 
     def update_all_players(self, role=False, wins=True):
-        for i in range(4):
+        for i in range(NUM_OF_PLAYERS):
             if wins:
                 self.update_player_wins(i, update_now=False)
             if role:
@@ -262,7 +262,7 @@ class Table:
     def display_current_player(self, current=-1):
         if current >= 0:
             print("Player {0:d}\n".format(current))
-        for i in range(4):
+        for i in range(NUM_OF_PLAYERS):
             rendered_text = self.player_font.render("Player {0:d}".format(i), True,
                                                     (255, 0, 255)).convert_alpha()
             if i == current:
@@ -364,7 +364,8 @@ class Table:
                                                 cards.get_suit_string(self.table_status["bid"] % 10))
         self.write_message(msg, line=1, delay_time=0)
         self.display_current_player(self.current_player)
-        msg = 'Bid Leader: Player {0:d}'.format((self.current_player - self.passes - 1 * (not self.first_player)) % 4)
+        msg = 'Bid Leader: Player {0:d}'.format((self.current_player - self.passes -
+                                                 1 * (not self.first_player)) % NUM_OF_PLAYERS)
         self.write_message(msg, line=2, delay_time=1)
 
     def start_bidding(self):
@@ -384,12 +385,12 @@ class Table:
 
             if self.table_status["bid"] < 75:
                 self.current_player += 1
-                self.current_player %= 4
+                self.current_player %= NUM_OF_PLAYERS
             msg = "Current Bid: {0:d} {1:s}".format(self.table_status["bid"] // 10,
                                                     cards.get_suit_string(self.table_status["bid"] % 10))
             self.write_message(msg, line=1, update_now=False)
             msg = 'Bid Leader: Player {0:d}'.format((self.current_player - self.passes
-                                                     - 1 * (not self.first_player)) % 4)
+                                                     - 1 * (not self.first_player)) % NUM_OF_PLAYERS)
             self.write_message(msg, line=2, update_now=False)
             self.display_current_player(self.current_player)
             if self.first_player:
@@ -412,7 +413,7 @@ class Table:
             if self.table_status['trump suit'] == 5:
                 self.table_status["leading player"] = self.current_player
             else:
-                self.table_status["leading player"] = (self.current_player + 1) % 4
+                self.table_status["leading player"] = (self.current_player + 1) % NUM_OF_PLAYERS
             self.table_status['defender']['target'] = self.table_status["bid"] // 10 + 6
             self.table_status['attacker']['target'] = 14 - self.table_status['defender']['target']
 
@@ -460,7 +461,8 @@ class Table:
                     self.write_message("Trump Broken!", delay_time=1)
 
             # Determine which players to check for winner, and determine winner
-            valid_nums = [card_nums[i] * ((follow_suits[i] and not trump_played) or trumps[i]) for i in range(4)]
+            valid_nums = [card_nums[i] * ((follow_suits[i] and not trump_played) or trumps[i])
+                          for i in range(NUM_OF_PLAYERS)]
             winning_player = valid_nums.index(max(valid_nums))
             self.write_message("Player {0:d} wins!\n".format(winning_player), delay_time=1)
             self.players[winning_player].score += 1
@@ -478,7 +480,7 @@ class Table:
             self.table_status['leading player'] = winning_player
             self.table_status['round history'].append(copy.copy(self.table_status["played cards"]))
             self.update_team_scores()
-            self.table_status["played cards"] = [0]*4
+            self.table_status["played cards"] = [0]*NUM_OF_PLAYERS
             self.current_round += 1
             self.update_table.emit()
             return
@@ -491,14 +493,14 @@ class Table:
                 self.update_all_players(role=True, wins=False)
 
         self.current_player += 1
-        self.current_player %= 4
+        self.current_player %= NUM_OF_PLAYERS
         self.update_table.emit()
         time.sleep(0.5)
 
     def reveal_all_roles(self, partner):
         self.players[partner].role = PlayerRole.DEFENDER
         self.table_status['defender']['wins'] += self.players[partner].score
-        for i in range(4):
+        for i in range(NUM_OF_PLAYERS):
             if self.players[i].role == PlayerRole.UNKNOWN:
                 self.players[i].role = PlayerRole.ATTACKER
                 self.table_status['attacker']['wins'] += self.players[i].score
@@ -510,12 +512,12 @@ class Table:
             player.score = 0
             player.role = PlayerRole.UNKNOWN
 
-        for i in range(4):
+        for i in range(NUM_OF_PLAYERS):
             self.update_players_role(i)
             self.update_player_wins(i)
         self.table_status['defender']['wins'] = 0
         self.table_status['attacker']['wins'] = 0
-        self.table_status["played cards"] = [0]*4
+        self.table_status["played cards"] = [0]*NUM_OF_PLAYERS
         self.table_status['round history'] = []
         self.current_round = 0
         self.write_message("", line=1, update_now=False)

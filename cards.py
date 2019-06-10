@@ -272,24 +272,18 @@ class SpriteSheet(object):
                 colorkey = image.get_at((0, 0))
             image.set_colorkey(colorkey, pygame.RLEACCEL)
         return image
+
     # Load a whole bunch of images and return them as a list
     def images_at(self, rects, colorkey = None):
-        "Loads multiple images, supply a list of coordinates"
+        """Loads multiple images, supply a list of coordinates"""
         return [self.image_at(rect, colorkey) for rect in rects]
     # Load a whole strip of images
+
     def load_strip(self, rect, image_count, colorkey = None):
         "Loads a strip of images and returns them as a list"
         tups = [(rect[0]+rect[2]*x, rect[1], rect[2], rect[3])
                 for x in range(image_count)]
         return self.images_at(tups, colorkey)
-
-class PlayerDeck(Deck):
-    # TODO: Maybe merge with Regular Deck
-     def get_selected_card(self, pos):
-         # TODO: convert pos to card num, deselect if no card is clicked or out of range
-
-         # TODO: check if card num is selected, set selected, otherwise use it (by removing)
-         pass
 
 
 DATA_FOLDER = "resource"
