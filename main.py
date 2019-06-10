@@ -1,22 +1,22 @@
 import view
 import pygame
-import players
+import table
 import random
 import pickle
 import sys
-import queue
-import threading
+#import queue
+#import threading
 
 class GameScreen(view.PygView):
 
     def __init__(self, *args, autoplay=False, view_all_cards=False, **kwargs):
         super().__init__(*args, **kwargs)
-        self.table = players.Table(0, 0, self.width, self.height, (0, 32, 0),
+        self.table = table.Table(0, 0, self.width, self.height, (0, 32, 0),
                                    autoplay=autoplay, view_all_cards=view_all_cards)
         self.table.update_table.connect(self.draw_table)
         self.draw_table()
-        self.player_commands = queue.Queue(1)
-        self.player_thread = threading.Thread(target=self.get_player_inputs)
+        #self.player_commands = queue.Queue(1)
+        #self.player_thread = threading.Thread(target=self.get_player_inputs)
         self.running = False
 
     def draw_table(self, **kwargs):
@@ -37,32 +37,34 @@ class GameScreen(view.PygView):
 
         pygame.display.flip()
 
-    def get_player_inputs(self):
-        while self.running:
-            if not self.player_commands.full():
-                player_cmd = input("Enter something:")
-                self.player_commands.put(player_cmd)
-        print('Finished')
+    def process_events(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.running = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    self.running = False
+                if event.key == pygame.K_p:
+                    if not self.table.ongoing:
+                        self.table.ongoing = True
+
+    #def get_player_inputs(self):
+    #    while self.running:
+    #        if not self.player_commands.full():
+    #            player_cmd = input("Enter something:")
+    #            self.player_commands.put(player_cmd)
 
     def run(self):
         self.running = True
         #self.player_thread.start()
         while self.running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.running = False
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        self.running = False
-                    if event.key == pygame.K_p:
-                        if not self.table.ongoing:
-                            self.table.ongoing = True
-                    #if event.key == pygame.K_l:
+            self.process_events()
+
             if self.table.ongoing:
                 self.table.continue_game()
-            if not self.player_commands.empty():
-                player_cmd = self.player_commands.get()
-                print("Player Command Received: " + player_cmd)
+            #if not self.player_commands.empty():
+            #    player_cmd = self.player_commands.get()
+            #    print("Player Command Received: " + player_cmd)
 
         pygame.quit()
 

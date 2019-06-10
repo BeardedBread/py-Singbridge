@@ -57,9 +57,9 @@ class Card(pygame.sprite.Sprite):
         self.original_backimage = None
         self.image = None
         self.backimage = None
+        self.rect = None
 
         self.add_image(image_data, backimage_data)
-        self.rect = self.image.get_rect()
         self._layer = 0
 
     def add_image(self, image, backimage=None):
@@ -157,6 +157,8 @@ class Deck():
         card.parent = self
         if self.vert_orientation:
             card.set_angle(90)
+        else:
+            card.set_angle(0)
         number_of_cards = len(self.cards)
 
         if number_of_cards == 0:
@@ -254,9 +256,9 @@ class Deck():
                 if self.deck_reveal == DeckReveal.HIDE_ALL:
                     image_to_draw = card.backimage
 
-                if self.flip:
-                    image_to_draw = pygame.transform.flip(card.image, self.vert_orientation,
-                                                          not self.vert_orientation)
+                    if self.flip:
+                        image_to_draw = pygame.transform.flip(image_to_draw, self.vert_orientation,
+                                                              not self.vert_orientation)
 
                 self.deck_surface.blit(image_to_draw, (card.x - selected * card.x * 0.5 *
                                                        (-1)**self.flip * self.vert_orientation,
