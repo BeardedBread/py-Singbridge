@@ -705,7 +705,7 @@ class Player(cards.Deck):
         return True
 
 
-class MainPlayer(cards.PlayerDeck):
+class MainPlayer(cards.Deck):
     def __init__(self, *args, ai_component=None, **kwargs):
         super().__init__(*args, **kwargs)
 

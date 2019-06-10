@@ -4,6 +4,8 @@ import players
 import random
 import pickle
 import sys
+import queue
+import threading
 
 class GameScreen(view.PygView):
 
@@ -13,9 +15,9 @@ class GameScreen(view.PygView):
                                    autoplay=autoplay, view_all_cards=view_all_cards)
         self.table.update_table.connect(self.draw_table)
         self.draw_table()
-
-    def load_assets(self):
-        pass
+        self.player_commands = queue.Queue(1)
+        self.player_thread = threading.Thread(target=self.get_player_inputs)
+        self.running = False
 
     def draw_table(self, **kwargs):
         # TODO: optimise this by only redrawing the parts that changes
@@ -35,29 +37,32 @@ class GameScreen(view.PygView):
 
         pygame.display.flip()
 
+    def get_player_inputs(self):
+        while self.running:
+            if not self.player_commands.full():
+                player_cmd = input("Enter something:")
+                self.player_commands.put(player_cmd)
+        print('Finished')
+
     def run(self):
-        running = True
-        while running:
+        self.running = True
+        #self.player_thread.start()
+        while self.running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    running = False
+                    self.running = False
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
-                        running = False
+                        self.running = False
                     if event.key == pygame.K_p:
                         if not self.table.ongoing:
                             self.table.ongoing = True
                     #if event.key == pygame.K_l:
             if self.table.ongoing:
                 self.table.continue_game()
-
-            milliseconds = self.clock.tick(self.fps)
-            #self.playtime += milliseconds / 1000.0
-
-            #self.draw_function()
-
-            #pygame.display.flip()
-            #self.screen.blit(self.background, (0, 0))
+            if not self.player_commands.empty():
+                player_cmd = self.player_commands.get()
+                print("Player Command Received: " + player_cmd)
 
         pygame.quit()
 
