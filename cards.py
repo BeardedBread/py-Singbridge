@@ -39,37 +39,52 @@ class DeckSort(Enum):
 
 class Card(pygame.sprite.Sprite):
 
-    def __init__(self, x, y, width, height, value, hidden=False, image_data=None, backimage_data=None, parent=None):
+    def __init__(self, x, y, width, height, value, hidden=False, image_data=None,
+                 backimage_data=None, parent=None, angle=0):
         super().__init__()
         self.x = x
         self.y = y
 
         self.width = width
         self.height = height
-
-        self.rect = pygame.rect.Rect(x, y, width, height)
+        self.angle = angle
 
         self.value = value
         self.hidden = hidden
         self.parent = parent
 
+        self.original_image = None
+        self.original_backimage = None
         self.image = None
         self.backimage = None
 
-        if image_data:
-            self.image = image_data
-            self.image = pygame.transform.scale(self.image, (self.width, self.height))
-
-        if backimage_data:
-            self.backimage = backimage_data
-            self.backimage = pygame.transform.scale(self.backimage, (self.width, self.height))
-        # Display Value for Debug Purposes
-        #myfont = pygame.font.SysFont("None", 16)
-        #mytext = myfont.render(str(self.value), True, (0, 0, 0))
-        #mytext = mytext.convert_alpha()
-        #self.image.blit(mytext, (0, 0))
-
+        self.add_image(image_data, backimage_data)
+        self.rect = self.image.get_rect()
         self._layer = 0
+
+    def add_image(self, image, backimage=None):
+        if image:
+            self.original_image = image
+            self.original_image = pygame.transform.scale(self.original_image, (self.width, self.height))
+            self.image = pygame.transform.rotate(self.original_image, self.angle)
+
+            self.rect = self.image.get_rect()
+
+        if backimage:
+            self.original_backimage = backimage
+            self.original_backimage = pygame.transform.scale(self.original_backimage, (self.width, self.height))
+            self.backimage = pygame.transform.rotate(self.original_backimage, self.angle)
+
+    def set_angle(self, angle):
+        if self.original_image:
+            self.image = pygame.transform.rotate(self.original_image, angle)
+
+        if self.original_backimage:
+            self.backimage = pygame.transform.rotate(self.original_backimage, angle)
+
+        self.angle = angle
+
+        self.rect = self.image.get_rect()
 
     def get_pos(self):
         return self.x, self.y
@@ -93,7 +108,8 @@ class Card(pygame.sprite.Sprite):
 class Deck():
 
     def __init__(self, x, y, length, width, spacing, deck_reveal=DeckReveal.SHOW_ALL,
-                 sort_order=DeckSort.ASCENDING, vert_orientation=False, draw_from_last=False, selectable=False):
+                 sort_order=DeckSort.ASCENDING, vert_orientation=False, draw_from_last=False, selectable=False,
+                 flip=False):
         super().__init__()
         self.x = x
         self.y = y
@@ -104,6 +120,8 @@ class Deck():
 
         self.deck_reveal = deck_reveal
         self.vert_orientation = vert_orientation
+        self.flip = flip
+
         self.draw_from_last = draw_from_last
         self.sort_order = sort_order
         self.selectable = selectable
@@ -137,6 +155,8 @@ class Deck():
     def add_card(self, card, position=0):
         # TODO: Add a function to add additional cards, to optimise number of recalculations
         card.parent = self
+        if self.vert_orientation:
+            card.set_angle(90)
         number_of_cards = len(self.cards)
 
         if number_of_cards == 0:
@@ -202,7 +222,7 @@ class Deck():
                     start_point = (self.length - total_card_length)/2
                     for (i, card) in enumerate(self.cards):
                         y = start_point + self.default_spacing * i
-                        x = (self.width - self.cards[0].width) / 2
+                        x = (self.width - self.cards[0].height) / 2
                         card.set_pos(x, y)
                 else:
                     adjusted_spacing = (self.length - self.cards[0].height)/(number_of_cards-1)
@@ -223,18 +243,25 @@ class Deck():
         self.deck_surface.fill(CLEARCOLOUR)
         self.deck_surface.blit(self.background, (0, 0))
         if not self.is_empty():
+            cards_to_draw = self.cards
             if self.draw_from_last:
-                for i, card in enumerate(reversed(self.cards)):
-                    if self.deck_reveal == DeckReveal.SHOW_ALL:
-                        self.deck_surface.blit(card.image, (card.x, card.y - (i == self.selected_card) * 0.5 * card.y))
-                    elif self.deck_reveal == DeckReveal.HIDE_ALL:
-                        self.deck_surface.blit(card.backimage, (card.x, card.y))
-            else:
-                for i, card in enumerate(self.cards):
-                    if self.deck_reveal == DeckReveal.SHOW_ALL:
-                        self.deck_surface.blit(card.image, (card.x, card.y - (i == self.selected_card) * 0.5 * card.y))
-                    elif self.deck_reveal == DeckReveal.HIDE_ALL:
-                        self.deck_surface.blit(card.backimage, (card.x, card.y))
+                cards_to_draw = reversed(cards_to_draw)
+
+            for i, card in enumerate(cards_to_draw):
+                selected = (i == self.selected_card)
+                image_to_draw = card.image
+
+                if self.deck_reveal == DeckReveal.HIDE_ALL:
+                    image_to_draw = card.backimage
+
+                if self.flip:
+                    image_to_draw = pygame.transform.flip(card.image, self.vert_orientation,
+                                                          not self.vert_orientation)
+
+                self.deck_surface.blit(image_to_draw, (card.x - selected * card.x * 0.5 *
+                                                       (-1)**self.flip * self.vert_orientation,
+                                                       card.y - selected * card.y * 0.5 *
+                                                       (-1)**self.flip * (not self.vert_orientation)))
 
     def remove_card(self, pos=-1):
         """
@@ -284,26 +311,32 @@ class Deck():
         self.update_deck_display()
 
     def get_selected_card(self, pos):
-        relative_pos_x = pos[0] - self.x
-        relative_pos_y = pos[1] - self.y
-        mouse_pos = (relative_pos_x, relative_pos_y)
-        prev_selected = self.selected_card
-        self.selected_card = -1
-        if not self.draw_from_last:
-            for i, card in enumerate(reversed(self.cards)):
-                if card.rect.collidepoint(mouse_pos):
-                    self.selected_card = len(self.cards) - 1 - i
-                    break
-        else:
-            for i, card in enumerate(self.cards):
-                if card.rect.collidepoint(mouse_pos):
-                    self.selected_card = i
-                    break
+        """
+        Get the selected card based on the mouse pos, offset to give the relative position in the deck.
+        The selected card position is stored in the deck
+        :param pos: Absolute position of the mouse
+        :return: bool: whether the card selected is the same as before
+        """
+        if self.selectable:
+            relative_pos_x = pos[0] - self.x
+            relative_pos_y = pos[1] - self.y
+            mouse_pos = (relative_pos_x, relative_pos_y)
+            prev_selected = self.selected_card
+            self.selected_card = -1
+            if not self.draw_from_last:
+                for i, card in enumerate(reversed(self.cards)):
+                    if card.rect.collidepoint(mouse_pos):
+                        self.selected_card = len(self.cards) - 1 - i
+                        break
+            else:
+                for i, card in enumerate(self.cards):
+                    if card.rect.collidepoint(mouse_pos):
+                        self.selected_card = i
+                        break
 
-        self.update_deck_display()
-        return prev_selected == self.selected_card and self.selected_card>=0
-
-
+            self.update_deck_display()
+            return prev_selected == self.selected_card and self.selected_card >= 0
+        return False
 
 
 class SpriteSheet(object):
@@ -316,7 +349,12 @@ class SpriteSheet(object):
 
     # Load a specific image from a specific rectangle
     def image_at(self, rectangle, colorkey=None):
-        "Loads image from x,y,x+offset,y+offset"
+        """
+        Loads image from x,y,x+width,y+height
+        :param rectangle: tuple: (x, y, width, height)
+        :param colorkey: tuple (R,G,B), the transparency colour
+        :return: the image
+        """
         rect = pygame.Rect(rectangle)
         image = pygame.Surface(rect.size).convert()
         image.blit(self.sheet, (0, 0), rect)
@@ -326,14 +364,23 @@ class SpriteSheet(object):
             image.set_colorkey(colorkey, pygame.RLEACCEL)
         return image
 
-    # Load a whole bunch of images and return them as a list
     def images_at(self, rects, colorkey = None):
-        """Loads multiple images, supply a list of coordinates"""
+        """
+        Loads multiple images, supply a list of coordinates
+        :param rects:
+        :param colorkey:
+        :return:
+        """
         return [self.image_at(rect, colorkey) for rect in rects]
-    # Load a whole strip of images
 
     def load_strip(self, rect, image_count, colorkey = None):
-        "Loads a strip of images and returns them as a list"
+        """
+        Loads a strip of images and returns them as a list
+        :param rect:
+        :param image_count:
+        :param colorkey:
+        :return:
+        """
         tups = [(rect[0]+rect[2]*x, rect[1], rect[2], rect[3])
                 for x in range(image_count)]
         return self.images_at(tups, colorkey)
@@ -350,10 +397,6 @@ def prepare_playing_cards(display_w, display_h):
     :return: The list of 52 Cards
     :rtype: List of <Cards>
     """
-    #try:  # try to load images from the harddisk
-    #    card_img = pygame.image.load(os.path.join(DATA_FOLDER, 'diamond.jpg'))
-    #except:
-    #    raise Exception("Cannot load image")  # print error message and exit program
     card_sprites = SpriteSheet(os.path.join(DATA_FOLDER, 'card_spritesheet.png'))
     all_cards = []
     offset = 0
@@ -419,22 +462,24 @@ def convert_bid_string(string):
         return -1
 
 
-class test_screen(view.PygView):
+class TestScreen(view.PygView):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         all_cards = prepare_playing_cards(50, 75)
         self.test_card = all_cards[15]
-        self.test_deck = Deck(100, 100, 200, 100, 25)
-        self.test_deck.add_card(all_cards[0])
-        self.test_deck.add_card(all_cards[13])
-        self.test_deck.add_card(all_cards[35])
-        self.test_deck.add_card(all_cards[51])
-        self.test_deck.add_card(all_cards[20])
-        self.test_deck.add_card(all_cards[21])
-        self.test_deck.add_card(all_cards[5])
-        self.test_deck.add_card(all_cards[14])
+        self.test_decks = []
+        self.test_decks.append(Deck(100, 100, 200, 100, 25, selectable=True))
+        self.test_decks.append(Deck(500, 100, 200, 100, 25, selectable=True, vert_orientation=True))
+        self.test_decks[0].add_card(all_cards[0])
+        self.test_decks[0].add_card(all_cards[13])
+        self.test_decks[0].add_card(all_cards[35])
+        self.test_decks[0].add_card(all_cards[51])
+        self.test_decks[1].add_card(all_cards[20])
+        self.test_decks[1].add_card(all_cards[21])
+        self.test_decks[1].add_card(all_cards[5])
+        self.test_decks[1].add_card(all_cards[14])
 
         self.left_mouse_down = False
         self.double_clicking = False
@@ -442,7 +487,8 @@ class test_screen(view.PygView):
 
     def draw_function(self):
         self.screen.blit(self.test_card.image, self.test_card.get_pos())
-        self.screen.blit(self.test_deck.deck_surface, self.test_deck.get_pos())
+        for deck in self.test_decks:
+            self.screen.blit(deck.deck_surface, deck.get_pos())
 
     def run(self):
         running = True
@@ -458,20 +504,21 @@ class test_screen(view.PygView):
                 if self.left_mouse_down and not mouse_clicks:
                     print('mouse click')
                     mouse_pos = pygame.mouse.get_pos()
-                    if self.test_deck.rect.collidepoint(mouse_pos):
-                        reselect = self.test_deck.get_selected_card(mouse_pos)
+                    for deck in self.test_decks:
+                        if deck.rect.collidepoint(mouse_pos):
+                            reselect = deck.get_selected_card(mouse_pos)
 
-                        if self.double_clicking:
-                            pygame.time.set_timer(self.double_click_event, 0)
-                            print('Double clicked')
-                            if reselect:
-                                self.test_deck.remove_selected_card()
-                            self.double_clicking = False
-                        else:
-                            self.double_clicking = True
-                            pygame.time.set_timer(self.double_click_event, 200)
-                            if reselect:
-                                self.test_deck.deselect_card()
+                            if self.double_clicking:
+                                pygame.time.set_timer(self.double_click_event, 0)
+                                print('Double clicked')
+                                if reselect:
+                                    deck.remove_selected_card()
+                                self.double_clicking = False
+                            else:
+                                self.double_clicking = True
+                                pygame.time.set_timer(self.double_click_event, 200)
+                                if reselect:
+                                    deck.deselect_card()
 
                 if event.type == self.double_click_event:
                     pygame.time.set_timer(self.double_click_event, 0)
@@ -489,5 +536,5 @@ class test_screen(view.PygView):
 
 
 if __name__ == '__main__':
-    test_view = test_screen(640, 400, clear_colour=(0, 0, 0))
+    test_view = TestScreen(640, 400, clear_colour=(0, 0, 0))
     test_view.run()
