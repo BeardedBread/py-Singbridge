@@ -6,6 +6,7 @@ Deck is used as a Card container
 import pygame
 import view
 import os
+import threading
 import random
 from enum import Enum
 
@@ -109,11 +110,11 @@ class Deck():
         self.selected_card = -1
 
         self.cards = []
-
+        self.line_width = 5
         if self.is_horizontal():
             self.background = pygame.Surface((self.length, self.width))
             self.background.fill(CLEARCOLOUR)
-            pygame.draw.rect(self.background, (255, 255, 255), self.background.get_rect(), 5)
+            pygame.draw.rect(self.background, (255, 255, 255), self.background.get_rect(), self.line_width)
 
             self.background = self.background.convert()
             self.background.set_colorkey(CLEARCOLOUR)
@@ -122,7 +123,7 @@ class Deck():
         else:
             self.background = pygame.Surface((self.width, self.length))
             self.background.fill(CLEARCOLOUR)
-            pygame.draw.rect(self.background, (255, 255, 255), self.background.get_rect(), 5)
+            pygame.draw.rect(self.background, (255, 255, 255), self.background.get_rect(), self.line_width)
             self.background = self.background.convert()
             self.background.set_colorkey(CLEARCOLOUR)
             self.deck_surface = self.background.copy()
@@ -180,16 +181,16 @@ class Deck():
         if number_of_cards > 0:
             if self.is_horizontal():
                 total_card_length = self.cards[0].width + self.default_spacing * (number_of_cards-1)
-                if total_card_length <= self.length:
+                if total_card_length <= self.length - 2*self.line_width:
                     start_point = (self.length - total_card_length)/2
                     for (i, card) in enumerate(self.cards):
                         x = start_point + self.default_spacing * i
                         y = (self.width - self.cards[0].height) / 2
                         card.set_pos(x, y)
                 else:
-                    adjusted_spacing = (self.length - self.cards[0].width)/(number_of_cards-1)
+                    adjusted_spacing = (self.length - self.cards[0].width - 2*self.line_width)/(number_of_cards-1)
 
-                    start_point = 0
+                    start_point = self.line_width
                     for (i, card) in enumerate(self.cards):
                         x = start_point + adjusted_spacing * i
                         y = (self.width - self.cards[0].height) / 2
@@ -251,6 +252,12 @@ class Deck():
             return card
         return None
 
+    def remove_selected_card(self):
+        if self.selected_card >= 0:
+            card = self.remove_card(self.selected_card)
+            self.deselect_card()
+            return card
+
     def is_horizontal(self):
         return not self.vert_orientation
 
@@ -272,10 +279,15 @@ class Deck():
             return True, card_values.index(value)
         return False, -1
 
+    def deselect_card(self):
+        self.selected_card = -1
+        self.update_deck_display()
+
     def get_selected_card(self, pos):
         relative_pos_x = pos[0] - self.x
         relative_pos_y = pos[1] - self.y
         mouse_pos = (relative_pos_x, relative_pos_y)
+        prev_selected = self.selected_card
         self.selected_card = -1
         if not self.draw_from_last:
             for i, card in enumerate(reversed(self.cards)):
@@ -289,6 +301,7 @@ class Deck():
                     break
 
         self.update_deck_display()
+        return prev_selected == self.selected_card and self.selected_card>=0
 
 
 
@@ -421,8 +434,11 @@ class test_screen(view.PygView):
         self.test_deck.add_card(all_cards[20])
         self.test_deck.add_card(all_cards[21])
         self.test_deck.add_card(all_cards[5])
+        self.test_deck.add_card(all_cards[14])
 
         self.left_mouse_down = False
+        self.double_clicking = False
+        self.double_click_event = pygame.USEREVENT + 1
 
     def draw_function(self):
         self.screen.blit(self.test_card.image, self.test_card.get_pos())
@@ -438,13 +454,31 @@ class test_screen(view.PygView):
                     if event.key == pygame.K_ESCAPE:
                         running = False
 
-            mouse_clicks = pygame.mouse.get_pressed()
-            if self.left_mouse_down and not mouse_clicks[0]:
-                mouse_pos = pygame.mouse.get_pos()
-                if self.test_deck.rect.collidepoint(mouse_pos):
-                    self.test_deck.get_selected_card(mouse_pos)
+                mouse_clicks = event.type == pygame.MOUSEBUTTONDOWN
+                if self.left_mouse_down and not mouse_clicks:
+                    print('mouse click')
+                    mouse_pos = pygame.mouse.get_pos()
+                    if self.test_deck.rect.collidepoint(mouse_pos):
+                        reselect = self.test_deck.get_selected_card(mouse_pos)
 
-            self.left_mouse_down = mouse_clicks[0]
+                        if self.double_clicking:
+                            pygame.time.set_timer(self.double_click_event, 0)
+                            print('Double clicked')
+                            if reselect:
+                                self.test_deck.remove_selected_card()
+                            self.double_clicking = False
+                        else:
+                            self.double_clicking = True
+                            pygame.time.set_timer(self.double_click_event, 200)
+                            if reselect:
+                                self.test_deck.deselect_card()
+
+                if event.type == self.double_click_event:
+                    pygame.time.set_timer(self.double_click_event, 0)
+                    self.double_clicking = False
+                    print('double click disabled')
+
+                self.left_mouse_down = mouse_clicks
 
             self.draw_function()
 
