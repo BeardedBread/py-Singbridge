@@ -145,7 +145,8 @@ class Table:
             self.players.append(players.Player(playerx[i], playery[i],
                                                l_deck, w_deck,
                                                spacing, vert_orientation=vert,
-                                               deck_reveal=reveal_mode, flip=(i == 1 or i == 2)))
+                                               deck_reveal=reveal_mode, flip=(i == 1 or i == 2),
+                                               draw_from_last=(i == 2 or i == 3)))
             self.players[i].connect_to_table(self.table_status)
             if i > 0:
                 self.players[i].add_ai(ai.RandomAI(self.table_status))

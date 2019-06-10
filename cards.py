@@ -201,39 +201,21 @@ class Deck():
         number_of_cards = len(self.cards)
 
         if number_of_cards > 0:
-            if self.is_horizontal():
-                total_card_length = self.cards[0].width + self.default_spacing * (number_of_cards-1)
-                if total_card_length <= self.length - 2*self.line_width:
-                    start_point = (self.length - total_card_length)/2
-                    for (i, card) in enumerate(self.cards):
-                        x = start_point + self.default_spacing * i
-                        y = (self.width - self.cards[0].height) / 2
-                        card.set_pos(x, y)
-                else:
-                    adjusted_spacing = (self.length - self.cards[0].width - 2*self.line_width)/(number_of_cards-1)
-
-                    start_point = self.line_width
-                    for (i, card) in enumerate(self.cards):
-                        x = start_point + adjusted_spacing * i
-                        y = (self.width - self.cards[0].height) / 2
-                        card.set_pos(x, y)
+            total_card_length = self.cards[0].width + self.default_spacing * (number_of_cards - 1)
+            if total_card_length <= self.length - 2 * self.line_width:
+                start_point = (self.length - total_card_length) / 2
+                spacing = self.default_spacing
             else:
-                total_card_length = self.cards[0].height + self.default_spacing * (number_of_cards-1)
+                start_point = self.line_width
+                spacing = (self.length - self.cards[0].width - 2*self.line_width)/(number_of_cards-1)
 
-                if total_card_length <= self.length:
-                    start_point = (self.length - total_card_length)/2
-                    for (i, card) in enumerate(self.cards):
-                        y = start_point + self.default_spacing * i
-                        x = (self.width - self.cards[0].height) / 2
-                        card.set_pos(x, y)
+            for (i, card) in enumerate(self.cards):
+                x = start_point + spacing * i
+                y = (self.width - self.cards[0].height) / 2
+                if self.is_horizontal():
+                    card.set_pos(x, y)
                 else:
-                    adjusted_spacing = (self.length - self.cards[0].height)/(number_of_cards-1)
-
-                    start_point = 0
-                    for (i, card) in enumerate(self.cards):
-                        y = start_point + adjusted_spacing * i
-                        x = (self.width - self.cards[0].width) / 2
-                        card.set_pos(x, y)
+                    card.set_pos(y, x)
 
         self.update_deck_display()
 
