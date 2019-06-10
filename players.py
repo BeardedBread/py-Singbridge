@@ -35,6 +35,7 @@ class Player(cards.Deck):
     def add_ai(self, ai_comp):
         self.AI = ai_comp
         ai_comp.connect_to_player(self)
+        self.selectable = False
 
     def make_decision(self, game_state, sub_state):
         """

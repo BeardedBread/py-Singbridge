@@ -84,7 +84,7 @@ class Table:
         w_deck = min(self.height, self.width) * 0.18
         l_deck = min(self.width, self.height) * 0.7
         # This is not a deck as it will never be drawn
-        self.discard_deck = cards.prepare_playing_cards(int(w_deck*0.7), int(w_deck*0.9))
+        self.discard_deck = cards.prepare_playing_cards(int(w_deck*0.7), int(w_deck*0.8))
         game_margins = 5
 
         # Players' deck positioning
@@ -509,6 +509,15 @@ class Table:
         self.display_current_player()
         print(len(self.discard_deck))
         self.update_table.emit()
+
+    def process_player_input(self, player_input):
+        # TODO: add processing player input
+        if player_input[0] == "select":
+            pass
+        elif player_input[0] == "play":
+            pass
+
+        pass
 
 class TestView(view.PygView):
 
