@@ -23,6 +23,7 @@ INPUT_SYMBOLS = {"c": 100, "d": 200, "h": 300, "s": 400, "n": 500, "a": 14,
                  }
 BID_SYMBOLS = {"c": 100, "d": 200, "h": 300, "s": 400, "n": 500}
 
+
 class DeckReveal(Enum):
     SHOW_ALL = 1
     HIDE_ALL = 2
@@ -44,6 +45,8 @@ class Card(pygame.sprite.Sprite):
 
         self.width = width
         self.height = height
+
+        self.rect = pygame.rect.Rect(x, y, width, height)
 
         self.value = value
         self.hidden = hidden
@@ -70,6 +73,12 @@ class Card(pygame.sprite.Sprite):
     def get_pos(self):
         return self.x, self.y
 
+    def set_pos(self, x, y):
+        self.x = x
+        self.y = y
+        self.rect.x = x
+        self.rect.y = y
+
     def suit(self):
         return get_card_suit(self.value)
 
@@ -83,7 +92,7 @@ class Card(pygame.sprite.Sprite):
 class Deck():
 
     def __init__(self, x, y, length, width, spacing, deck_reveal=DeckReveal.SHOW_ALL,
-                 sort_order=DeckSort.ASCENDING, vert_orientation=False, draw_from_last=False):
+                 sort_order=DeckSort.ASCENDING, vert_orientation=False, draw_from_last=False, selectable=False):
         super().__init__()
         self.x = x
         self.y = y
@@ -96,6 +105,8 @@ class Deck():
         self.vert_orientation = vert_orientation
         self.draw_from_last = draw_from_last
         self.sort_order = sort_order
+        self.selectable = selectable
+        self.selected_card = -1
 
         self.cards = []
 
@@ -107,6 +118,7 @@ class Deck():
             self.background = self.background.convert()
             self.background.set_colorkey(CLEARCOLOUR)
             self.deck_surface = self.background.copy()
+            self.rect = pygame.rect.Rect(x, y, length, width)
         else:
             self.background = pygame.Surface((self.width, self.length))
             self.background.fill(CLEARCOLOUR)
@@ -114,8 +126,12 @@ class Deck():
             self.background = self.background.convert()
             self.background.set_colorkey(CLEARCOLOUR)
             self.deck_surface = self.background.copy()
+            self.rect = pygame.rect.Rect(x, y, width, length)
 
         self._layer = 1
+
+    def set_selectable(self, state):
+        self.selectable = state
 
     def add_card(self, card, position=0):
         # TODO: Add a function to add additional cards, to optimise number of recalculations
@@ -167,30 +183,34 @@ class Deck():
                 if total_card_length <= self.length:
                     start_point = (self.length - total_card_length)/2
                     for (i, card) in enumerate(self.cards):
-                        card.x = start_point + self.default_spacing * i
-                        card.y = (self.width - self.cards[0].height) / 2
+                        x = start_point + self.default_spacing * i
+                        y = (self.width - self.cards[0].height) / 2
+                        card.set_pos(x, y)
                 else:
                     adjusted_spacing = (self.length - self.cards[0].width)/(number_of_cards-1)
 
                     start_point = 0
                     for (i, card) in enumerate(self.cards):
-                        card.x = start_point + adjusted_spacing * i
-                        card.y = (self.width - self.cards[0].height) / 2
+                        x = start_point + adjusted_spacing * i
+                        y = (self.width - self.cards[0].height) / 2
+                        card.set_pos(x, y)
             else:
                 total_card_length = self.cards[0].height + self.default_spacing * (number_of_cards-1)
 
                 if total_card_length <= self.length:
                     start_point = (self.length - total_card_length)/2
                     for (i, card) in enumerate(self.cards):
-                        card.y = start_point + self.default_spacing * i
-                        card.x = (self.width - self.cards[0].width) / 2
+                        y = start_point + self.default_spacing * i
+                        x = (self.width - self.cards[0].width) / 2
+                        card.set_pos(x, y)
                 else:
                     adjusted_spacing = (self.length - self.cards[0].height)/(number_of_cards-1)
 
                     start_point = 0
                     for (i, card) in enumerate(self.cards):
-                        card.y = start_point + adjusted_spacing * i
-                        card.x = (self.width - self.cards[0].width)/ 2
+                        y = start_point + adjusted_spacing * i
+                        x = (self.width - self.cards[0].width) / 2
+                        card.set_pos(x, y)
 
         self.update_deck_display()
 
@@ -203,15 +223,15 @@ class Deck():
         self.deck_surface.blit(self.background, (0, 0))
         if not self.is_empty():
             if self.draw_from_last:
-                for card in reversed(self.cards):
+                for i, card in enumerate(reversed(self.cards)):
                     if self.deck_reveal == DeckReveal.SHOW_ALL:
-                        self.deck_surface.blit(card.image, (card.x, card.y))
+                        self.deck_surface.blit(card.image, (card.x, card.y - (i == self.selected_card) * 0.5 * card.y))
                     elif self.deck_reveal == DeckReveal.HIDE_ALL:
                         self.deck_surface.blit(card.backimage, (card.x, card.y))
             else:
-                for card in self.cards:
+                for i, card in enumerate(self.cards):
                     if self.deck_reveal == DeckReveal.SHOW_ALL:
-                        self.deck_surface.blit(card.image, (card.x, card.y))
+                        self.deck_surface.blit(card.image, (card.x, card.y - (i == self.selected_card) * 0.5 * card.y))
                     elif self.deck_reveal == DeckReveal.HIDE_ALL:
                         self.deck_surface.blit(card.backimage, (card.x, card.y))
 
@@ -251,6 +271,26 @@ class Deck():
         if value in card_values:
             return True, card_values.index(value)
         return False, -1
+
+    def get_selected_card(self, pos):
+        relative_pos_x = pos[0] - self.x
+        relative_pos_y = pos[1] - self.y
+        mouse_pos = (relative_pos_x, relative_pos_y)
+        self.selected_card = -1
+        if not self.draw_from_last:
+            for i, card in enumerate(reversed(self.cards)):
+                if card.rect.collidepoint(mouse_pos):
+                    self.selected_card = len(self.cards) - 1 - i
+                    break
+        else:
+            for i, card in enumerate(self.cards):
+                if card.rect.collidepoint(mouse_pos):
+                    self.selected_card = i
+                    break
+
+        self.update_deck_display()
+
+
 
 
 class SpriteSheet(object):
@@ -378,6 +418,11 @@ class test_screen(view.PygView):
         self.test_deck.add_card(all_cards[13])
         self.test_deck.add_card(all_cards[35])
         self.test_deck.add_card(all_cards[51])
+        self.test_deck.add_card(all_cards[20])
+        self.test_deck.add_card(all_cards[21])
+        self.test_deck.add_card(all_cards[5])
+
+        self.left_mouse_down = False
 
     def draw_function(self):
         self.screen.blit(self.test_card.image, self.test_card.get_pos())
@@ -392,18 +437,14 @@ class test_screen(view.PygView):
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         running = False
-                    if event.key == pygame.K_r:
-                        card = self.test_deck.remove_card()
-                        del card
-                        print('remove cards')
 
-                    if event.key == pygame.K_a:
-                        self.test_deck.add_card(Card(50, 0, 50, 75, random.randint(1, 500), image_data=self.card_img))
-                        print('remove cards')
-                        pass
+            mouse_clicks = pygame.mouse.get_pressed()
+            if self.left_mouse_down and not mouse_clicks[0]:
+                mouse_pos = pygame.mouse.get_pos()
+                if self.test_deck.rect.collidepoint(mouse_pos):
+                    self.test_deck.get_selected_card(mouse_pos)
 
-            milliseconds = self.clock.tick(self.fps)
-            #self.playtime += milliseconds / 1000.0
+            self.left_mouse_down = mouse_clicks[0]
 
             self.draw_function()
 
