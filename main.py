@@ -37,16 +37,6 @@ class GameScreen(view.PygView):
 
         pygame.display.flip()
 
-    def process_events(self):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self.running = False
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    self.running = False
-                if event.key == pygame.K_p:
-                    if not self.table.ongoing:
-                        self.table.ongoing = True
 
     #def get_player_inputs(self):
     #    while self.running:
@@ -58,10 +48,20 @@ class GameScreen(view.PygView):
         self.running = True
         #self.player_thread.start()
         while self.running:
-            self.process_events()
+
+            all_events = pygame.event.get()
+            for event in all_events:
+                if event.type == pygame.QUIT:
+                    self.running = False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        self.running = False
+                    if event.key == pygame.K_p:
+                        if not self.table.ongoing:
+                            self.table.ongoing = True
 
             if self.table.ongoing:
-                self.table.continue_game()
+                self.table.continue_game(all_events)
             #if not self.player_commands.empty():
             #    player_cmd = self.player_commands.get()
             #    print("Player Command Received: " + player_cmd)

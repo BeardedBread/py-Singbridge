@@ -142,11 +142,19 @@ class Table:
             reveal_mode = cards.DeckReveal.HIDE_ALL
             if i == 0 or view_all_cards:
                 reveal_mode = cards.DeckReveal.SHOW_ALL
-            self.players.append(players.Player(playerx[i], playery[i],
-                                               l_deck, w_deck,
-                                               spacing, vert_orientation=vert,
-                                               deck_reveal=reveal_mode, flip=(i == 1 or i == 2),
-                                               draw_from_last=(i == 2 or i == 3)))
+
+            if i == 0:
+                self.players.append(players.MainPlayer(playerx[i], playery[i],
+                                                   l_deck, w_deck,
+                                                   spacing, vert_orientation=vert,
+                                                   deck_reveal=reveal_mode))
+            else:
+                self.players.append(players.Player(playerx[i], playery[i],
+                                                   l_deck, w_deck,
+                                                   spacing, vert_orientation=vert,
+                                                   deck_reveal=reveal_mode, flip=(i == 1 or i == 2),
+                                                   draw_from_last=(i == 2 or i == 3)))
+
             self.players[i].connect_to_table(self.table_status)
             if i > 0:
                 self.players[i].add_ai(ai.RandomAI(self.table_status))
@@ -182,8 +190,6 @@ class Table:
 
         self.ongoing = False
         self.require_player_input = False
-
-
 
     def center_text_on_surface(self, surf, rendered_text, clear_colour):
         line_center = surf.get_rect().center
@@ -274,7 +280,7 @@ class Table:
     def get_pos(self):
         return self.x, self.y
 
-    def continue_game(self):
+    def continue_game(self, game_events):
         """
         This is where the FSM is. State transition should occur here.
         What takes place in the state should be in a function.
@@ -303,7 +309,7 @@ class Table:
                 self.update_team_scores()
 
         elif self.game_state == GameState.PLAYING:
-            self.play_a_round()
+            self.play_a_round(game_events)
             if self.current_round == 13:
                 self.write_message("Game Set! Press P to play again!")
                 self.ongoing = False
@@ -410,23 +416,54 @@ class Table:
             self.write_message(msg, line=1, delay_time=1)
             return True
 
-    def play_a_round(self):
+    def play_a_round(self, game_events):
         """
         Ask each player to play a valid card and determine the winner of the round
+        This must work without pause if only bots are playing
+        The function will exit after every player decision or if a user input is needed.
+        If a user input is required, the function will continuously exit without proceeding to the next player
+        until a valid input is received.
+
         :return: None
         """
         if not any(self.table_status["played cards"]):
             # Leading player starts with the leading card, which determines the leading suit
-            self.current_player = self.table_status['leading player']
-            self.display_current_player(self.current_player)
-            card = self.players[self.current_player].make_decision(self.game_state, 0)
+            if not self.require_player_input:
+                self.current_player = self.table_status['leading player']
+                self.display_current_player(self.current_player)
+                if not self.players[self.current_player].AI:
+                    self.require_player_input = True
+                    return
+                else:
+                    card = self.players[self.current_player].make_decision(self.game_state, 0)
+            else:
+                card = self.players[self.current_player].make_decision(self.game_state, 0, game_events)
+
+                if not type(card) is cards.Card:
+                    if card:
+                        self.update_table.emit()
+                    return
+                self.require_player_input = False
+
             self.table_status["played cards"][self.current_player] = card
             self.players_playzone[self.current_player].add_card(card)
         elif not all(self.table_status["played cards"]):
             # Subsequent player make their plays, following suit if possible
-            self.display_current_player(self.current_player)
-            print("Player {0:d}\n".format(self.current_player))
-            card = self.players[self.current_player].make_decision(self.game_state, 1)
+            if not self.require_player_input:
+                self.display_current_player(self.current_player)
+                if not self.players[self.current_player].AI:
+                    self.require_player_input = True
+                    return
+                else:
+                    card = self.players[self.current_player].make_decision(self.game_state, 1)
+            else:
+                card = self.players[self.current_player].make_decision(self.game_state, 1, game_events)
+                if not type(card) is cards.Card:
+                    if card:
+                        self.update_table.emit()
+                    return
+                self.require_player_input = False
+
             self.players_playzone[self.current_player].add_card(card)
             self.table_status["played cards"][self.current_player] = card
         else:

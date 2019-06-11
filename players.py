@@ -1,5 +1,6 @@
 import cards
 import pprint
+import pygame
 from game_consts import GameState, PlayerRole, STARTING_HAND
 
 
@@ -37,11 +38,12 @@ class Player(cards.Deck):
         ai_comp.connect_to_player(self)
         self.selectable = False
 
-    def make_decision(self, game_state, sub_state):
+    def make_decision(self, game_state, sub_state, game_events=None):
         """
         The player will need to make a decision depending on the game state and sub-state
         :param game_state: Current game state
         :param sub_state: Sub-state which affects the output for the current game state
+        :param game_events: Pygame events
         :return: For Bidding: Either a bid or a partner call, int
                  For Playing: A Card
                  For Reshuffle: bool, True to reshuffle, False otherwise
@@ -65,7 +67,7 @@ class Player(cards.Deck):
                 play = self.AI.make_a_play(sub_state)
                 [_, pos] = self.check_card_in(play)
                 return self.remove_card(pos)
-            return self.make_a_play(sub_state)
+            return self.make_a_play(sub_state, game_events=game_events)
 
     def make_a_bid(self):
         """
@@ -111,7 +113,7 @@ class Player(cards.Deck):
             else:
                 print("Invalid card call")
 
-    def make_a_play(self, substate):
+    def make_a_play(self, substate, game_events=None):
         """
         The procedure to make a play in a round
         :return: A valid Card
@@ -124,10 +126,7 @@ class Player(cards.Deck):
             else:
                 play = cards.convert_input_string(play)
                 if play > 0:
-                    if substate == 0:
-                        valid = self.check_for_valid_plays(play, True)
-                    else:
-                        valid = self.check_for_valid_plays(play, False)
+                    valid = self.check_for_valid_plays(play, substate == 0)
 
                     if valid:
                         [_, pos] = self.check_card_in(play)
@@ -189,8 +188,47 @@ class MainPlayer(Player):
         self.AI = ai_component
         self.table_status = None  # This is found in Table and updated through Table
         self.selectable = True
+        self.left_mouse_down = False
+        self.double_clicking = False
+        self.double_click_event = pygame.USEREVENT + 1
+        self.double_click_timing = 300
 
-    def make_a_play(self):
-        pass
+    def make_a_play(self, substate, game_events=None):
+        card = None
+        if game_events:
+            for event in game_events:
+                mouse_clicks = event.type == pygame.MOUSEBUTTONDOWN
+                if self.left_mouse_down and not mouse_clicks:
+                    print('mouse click')
+                    mouse_pos = pygame.mouse.get_pos()
+                    if self.rect.collidepoint(mouse_pos):
+                        reselect = self.get_selected_card(mouse_pos)
+                        if self.selected_card >= 0 and not reselect:
+                            card = 1
+
+                        if self.double_clicking:
+                            pygame.time.set_timer(self.double_click_event, 0)
+                            print('Double clicked')
+                            if reselect:
+                                card_value = self.cards[self.selected_card].value
+                                if self.check_for_valid_plays(card_value, substate == 0):
+                                    card = self.remove_selected_card()
+                                self.deselect_card()
+                            self.double_clicking = False
+                        else:
+                            self.double_clicking = True
+                            pygame.time.set_timer(self.double_click_event, self.double_click_timing)
+                            if reselect:
+                                self.deselect_card()
+                                card = 1
+
+                if event.type == self.double_click_event:
+                    pygame.time.set_timer(self.double_click_event, 0)
+                    self.double_clicking = False
+                    print('double click disabled')
+
+                self.left_mouse_down = mouse_clicks
+
+        return card
 
 
