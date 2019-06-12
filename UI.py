@@ -12,6 +12,8 @@ class GenericUI:
         self.rect = pygame.rect.Rect(x, y, width, height)
         self.visible = True
         self.clear_colour = (0, 0, 0)
+        self.outline_colour = (255, 0, 0)
+        self.text_colour = (255, 255, 255)
 
         self.background = pygame.Surface((self.width, self.height))
         self.background.fill(self.clear_colour)
@@ -41,8 +43,8 @@ class TextBox(GenericUI):
         super().redraw()
         if self.visible:
             outline = (0, 0, self.rect.w, self.rect.h)
-            pygame.draw.rect(self.background, (255, 0, 0), outline, self.outline_thickness)
-            rendered_text = self.font.render(self.text, True, (0, 64, 192)).convert_alpha()
+            pygame.draw.rect(self.background, self.outline_colour, outline, self.outline_thickness)
+            rendered_text = self.font.render(self.text, True, self.text_colour).convert_alpha()
             rect_center = self.background.get_rect().center
             text_rect = rendered_text.get_rect(center=rect_center)
             self.background.blit(rendered_text, text_rect)
@@ -68,8 +70,8 @@ class Button(TextBox):
             super().redraw()
         if self.visible:
             outline = (0, 0, self.rect.w, self.rect.h)
-            pygame.draw.rect(self.background, (255, 0, 0), outline, self.outline_thickness)
-            rendered_text = self.font.render(self.text, True, (0, 64, 192)).convert_alpha()
+            pygame.draw.rect(self.background, self.outline_colour, outline, self.outline_thickness)
+            rendered_text = self.font.render(self.text, True, self.text_colour).convert_alpha()
             rect_center = self.background.get_rect().center
             text_rect = rendered_text.get_rect(center=rect_center)
             self.background.blit(rendered_text, text_rect)
@@ -86,6 +88,7 @@ class Button(TextBox):
 
 
 class ScrollList(GenericUI):
+    selected = Signal()
 
     def __init__(self, x, y, width, height, texts, text_size=25):
         super().__init__(x, y, width, height)
@@ -96,10 +99,11 @@ class ScrollList(GenericUI):
         self.y_offset = 0
         self.selected = -1
         self.outline_thickness = 3
+        self.selected_colour = (255, 0, 0)
 
         current_y = self.outline_thickness
         for text in texts:
-            rendered_text = self.font.render(text, True, (0, 64, 192)).convert_alpha()
+            rendered_text = self.font.render(text, True, self.text_colour).convert_alpha()
             text_rect = rendered_text.get_rect()
             text_rect.x = 0
             text_rect.y = current_y
@@ -115,12 +119,12 @@ class ScrollList(GenericUI):
         super().redraw()
         if self.visible:
             outline = (0, 0, self.rect.w, self.rect.h)
-            pygame.draw.rect(self.background, (255, 0, 0), outline, self.outline_thickness)
+            pygame.draw.rect(self.background, self.outline_colour, outline, self.outline_thickness)
             i = 0
             for text, text_rect in zip(self.texts, self.text_rects):
                 if i == self.selected:
-                    pygame.draw.rect(self.background, (255, 0, 0), text_rect)
-                rendered_text = self.font.render(text, True, (255, 255, 192)).convert_alpha()
+                    pygame.draw.rect(self.background, self.selected_colour, text_rect)
+                rendered_text = self.font.render(text, True, self.text_colour).convert_alpha()
 
                 self.background.blit(rendered_text, text_rect)
                 i += 1
@@ -132,7 +136,6 @@ class ScrollList(GenericUI):
                 text_rect.y += offset
         self.y_offset = max(-self.max_offset, self.y_offset)
         self.y_offset = min(0, self.y_offset)
-
 
     def scroll_down(self, offset=10):
         """
