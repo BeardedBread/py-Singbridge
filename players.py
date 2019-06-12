@@ -198,7 +198,7 @@ class MainPlayer(Player):
         if game_events:
             for event in game_events:
                 mouse_clicks = event.type == pygame.MOUSEBUTTONDOWN
-                if self.left_mouse_down and not mouse_clicks:
+                if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                     print('mouse click')
                     mouse_pos = pygame.mouse.get_pos()
                     if self.rect.collidepoint(mouse_pos):
@@ -213,6 +213,8 @@ class MainPlayer(Player):
                                 card_value = self.cards[self.selected_card].value
                                 if self.check_for_valid_plays(card_value, substate == 0):
                                     card = self.remove_selected_card()
+                                else:
+                                    card = 1
                                 self.deselect_card()
                             self.double_clicking = False
                         else:
@@ -226,8 +228,6 @@ class MainPlayer(Player):
                     pygame.time.set_timer(self.double_click_event, 0)
                     self.double_clicking = False
                     print('double click disabled')
-
-                self.left_mouse_down = mouse_clicks
 
         return card
 
