@@ -13,22 +13,83 @@ class GenericUI:
         self.visible = True
         self.clear_colour = (0, 0, 0)
 
-class Button(GenericUI):
-    clicked = Signal()
-
-    def __init__(self, x, y, width, height, texts=[], text_size=25):
-        super().__init__(x, y, width, height)
-
-
-class ScrollList(GenericUI):
-
-    def __init__(self, x, y, width, height, texts=[], text_size=25):
-        super().__init__(x, y, width, height)
-
         self.background = pygame.Surface((self.width, self.height))
         self.background.fill(self.clear_colour)
         self.background.set_colorkey(self.clear_colour)
         self.background = self.background.convert()
+
+        self.hold_function = None
+        self.release_function = None
+
+    def redraw(self):
+        self.background.fill(self.clear_colour)
+
+    def get_pos(self):
+        return self.x, self.y
+
+
+class TextBox(GenericUI):
+    def __init__(self, x, y, width, height, text='Button', text_size=25):
+        super().__init__(x, y, width, height)
+        self.text = text
+        self.font = pygame.font.SysFont("None", text_size)
+        self.outline_thickness = 3
+
+        self.redraw()
+
+    def redraw(self):
+        super().redraw()
+        if self.visible:
+            outline = (0, 0, self.rect.w, self.rect.h)
+            pygame.draw.rect(self.background, (255, 0, 0), outline, self.outline_thickness)
+            rendered_text = self.font.render(self.text, True, (0, 64, 192)).convert_alpha()
+            rect_center = self.background.get_rect().center
+            text_rect = rendered_text.get_rect(center=rect_center)
+            self.background.blit(rendered_text, text_rect)
+
+
+class Button(TextBox):
+
+    clicked = Signal()
+
+    def __init__(self, x, y, width, height, text='Button', text_size=25):
+        self.button_down = False
+
+        super().__init__(x, y, width, height, text=text, text_size=text_size)
+        self.hold_function = self.hold
+        self.release_function = self.release
+
+        self.redraw()
+
+    def redraw(self):
+        if self.button_down:
+            self.background.fill((255, 255, 255))
+        else:
+            super().redraw()
+        if self.visible:
+            outline = (0, 0, self.rect.w, self.rect.h)
+            pygame.draw.rect(self.background, (255, 0, 0), outline, self.outline_thickness)
+            rendered_text = self.font.render(self.text, True, (0, 64, 192)).convert_alpha()
+            rect_center = self.background.get_rect().center
+            text_rect = rendered_text.get_rect(center=rect_center)
+            self.background.blit(rendered_text, text_rect)
+
+    def hold(self, *args):
+        if not self.button_down:
+            self.button_down = True
+            self.redraw()
+
+    def release(self, *args):
+        if self.button_down:
+            self.button_down = False
+            self.redraw()
+
+
+class ScrollList(GenericUI):
+
+    def __init__(self, x, y, width, height, texts, text_size=25):
+        super().__init__(x, y, width, height)
+
         self.font = pygame.font.SysFont("None", text_size)
         self.texts = texts
         self.text_rects = []
@@ -46,10 +107,12 @@ class ScrollList(GenericUI):
             self.text_rects.append(text_rect)
             current_y += text_rect.height
         self.max_offset = max(0, current_y-self.height-self.outline_thickness)
+
+        self.release_function = self.check_click_pos
         self.redraw()
 
     def redraw(self):
-        self.background.fill(self.clear_colour)
+        super().redraw()
         if self.visible:
             outline = (0, 0, self.rect.w, self.rect.h)
             pygame.draw.rect(self.background, (255, 0, 0), outline, self.outline_thickness)
@@ -84,7 +147,8 @@ class ScrollList(GenericUI):
         self.offset_text_rects(offset)
         self.redraw()
 
-    def check_click_pos(self, pos):
+    def check_click_pos(self, *args):
+        pos = args[0]
         relative_pos_x = pos[0] - self.x
         relative_pos_y = pos[1] - self.y
         mouse_pos = (relative_pos_x, relative_pos_y)
@@ -94,9 +158,6 @@ class ScrollList(GenericUI):
                 self.redraw()
                 return
 
-    def get_pos(self):
-        return self.x, self.y
-
 
 class TestScreen(view.PygView):
 
@@ -104,14 +165,21 @@ class TestScreen(view.PygView):
         super().__init__(*args, **kwargs)
         texts = [str(i) for i in range(20)]
 
-        self.scroll_menu = ScrollMenu(100, 100, 100, 200, texts=texts)
+        self.scroll_menu = ScrollList(100, 100, 100, 200, texts=texts)
+        self.button = Button(300, 100, 50, 25, text_size=18)
+        self.textbox = TextBox(300, 250, 200, 100, text="Test")
+
+
+        self.elements = [self.scroll_menu, self.button, self.textbox]
 
         self.double_clicking = False
         self.left_mouse_down = False
         self.double_click_event = pygame.USEREVENT + 1
 
     def draw_function(self):
-        self.screen.blit(self.scroll_menu.background, self.scroll_menu.get_pos())
+        for element in self.elements:
+            self.screen.blit(element.background, element.get_pos())
+            self.screen.blit(element.background, element.get_pos())
 
     def run(self):
         running = True
@@ -123,13 +191,20 @@ class TestScreen(view.PygView):
                     if event.key == pygame.K_ESCAPE:
                         running = False
 
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    mouse_pos = pygame.mouse.get_pos()
+                    for element in self.elements:
+                        if element.hold_function and element.rect.collidepoint(mouse_pos):
+                            element.hold_function()
+
+
                 if event.type == pygame.MOUSEBUTTONUP:
                     mouse_pos = pygame.mouse.get_pos()
                     if event.button == 1:
                         print('mouse click')
-                        if self.scroll_menu.rect.collidepoint(mouse_pos):
-                            print('here')
-                            self.scroll_menu.check_click_pos(mouse_pos)
+                        for element in self.elements:
+                            if element.release_function and element.rect.collidepoint(mouse_pos):
+                                element.release_function(mouse_pos)
 
                         if self.double_clicking:
                             pygame.time.set_timer(self.double_click_event, 0)
