@@ -222,7 +222,6 @@ class TestScreen(view.PygView):
                     element.process_events(event)
 
                 if event.type == pygame.MOUSEBUTTONUP:
-                    mouse_pos = pygame.mouse.get_pos()
                     if event.button == 1:
                         print('mouse click')
                         if self.double_clicking:
@@ -232,12 +231,6 @@ class TestScreen(view.PygView):
                         else:
                             self.double_clicking = True
                             pygame.time.set_timer(self.double_click_event, 200)
-
-                    if self.scroll_menu.rect.collidepoint(mouse_pos):
-                        if event.button == 4:
-                            self.scroll_menu.scroll_up()
-                        if event.button == 5:
-                            self.scroll_menu.scroll_down()
 
                 if event.type == self.double_click_event:
                     pygame.time.set_timer(self.double_click_event, 0)
