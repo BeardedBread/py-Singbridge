@@ -23,6 +23,20 @@ class GenericUI:
         self.hold_function = None
         self.release_function = None
 
+    def process_events(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            mouse_pos = pygame.mouse.get_pos()
+            if self.hold_function and self.rect.collidepoint(mouse_pos):
+                self.hold_function(mouse_pos)
+
+        if event.type == pygame.MOUSEBUTTONUP:
+            mouse_pos = pygame.mouse.get_pos()
+            if self.release_function and self.rect.collidepoint(mouse_pos):
+                mouse_pos = pygame.mouse.get_pos()
+                if event.button == 1:
+                    print('mouse click')
+                    self.release_function(mouse_pos)
+
     def redraw(self):
         self.background.fill(self.clear_colour)
 
@@ -129,6 +143,16 @@ class ScrollList(GenericUI):
                 self.background.blit(rendered_text, text_rect)
                 i += 1
 
+    def process_events(self, event):
+        super().process_events(event)
+        if event.type == pygame.MOUSEBUTTONUP:
+            mouse_pos = pygame.mouse.get_pos()
+            if self.rect.collidepoint(mouse_pos):
+                if event.button == 4:
+                    self.scroll_up()
+                if event.button == 5:
+                    self.scroll_down()
+
     def offset_text_rects(self, offset):
         self.y_offset += offset
         if -self.max_offset <= self.y_offset <= 0:
@@ -194,21 +218,13 @@ class TestScreen(view.PygView):
                     if event.key == pygame.K_ESCAPE:
                         running = False
 
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                    mouse_pos = pygame.mouse.get_pos()
-                    for element in self.elements:
-                        if element.hold_function and element.rect.collidepoint(mouse_pos):
-                            element.hold_function()
-
+                for element in self.elements:
+                    element.process_events(event)
 
                 if event.type == pygame.MOUSEBUTTONUP:
                     mouse_pos = pygame.mouse.get_pos()
                     if event.button == 1:
                         print('mouse click')
-                        for element in self.elements:
-                            if element.release_function and element.rect.collidepoint(mouse_pos):
-                                element.release_function(mouse_pos)
-
                         if self.double_clicking:
                             pygame.time.set_timer(self.double_click_event, 0)
                             print('Double clicked')
