@@ -1,7 +1,7 @@
 import cards
 import pprint
 import pygame
-from game_consts import GameState, PlayerRole, STARTING_HAND
+from game_consts import GameState, PlayerRole, STARTING_HAND, DOUBLE_CLICK_EVENT, DOUBLE_CLICK_TIMING
 
 
 class Player(cards.Deck):
@@ -190,14 +190,11 @@ class MainPlayer(Player):
         self.selectable = True
         self.left_mouse_down = False
         self.double_clicking = False
-        self.double_click_event = pygame.USEREVENT + 1
-        self.double_click_timing = 300
 
     def make_a_play(self, substate, game_events=None):
         card = None
         if game_events:
             for event in game_events:
-                mouse_clicks = event.type == pygame.MOUSEBUTTONDOWN
                 if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                     print('mouse click')
                     mouse_pos = pygame.mouse.get_pos()
@@ -207,7 +204,7 @@ class MainPlayer(Player):
                             card = 1
 
                         if self.double_clicking:
-                            pygame.time.set_timer(self.double_click_event, 0)
+                            pygame.time.set_timer(DOUBLE_CLICK_EVENT, 0)
                             print('Double clicked')
                             if reselect:
                                 card_value = self.cards[self.selected_card].value
@@ -219,13 +216,13 @@ class MainPlayer(Player):
                             self.double_clicking = False
                         else:
                             self.double_clicking = True
-                            pygame.time.set_timer(self.double_click_event, self.double_click_timing)
+                            pygame.time.set_timer(DOUBLE_CLICK_EVENT, DOUBLE_CLICK_TIMING)
                             if reselect:
                                 self.deselect_card()
                                 card = 1
 
-                if event.type == self.double_click_event:
-                    pygame.time.set_timer(self.double_click_event, 0)
+                if event.type == DOUBLE_CLICK_EVENT:
+                    pygame.time.set_timer(DOUBLE_CLICK_EVENT, 0)
                     self.double_clicking = False
                     print('double click disabled')
 
