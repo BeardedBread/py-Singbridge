@@ -43,6 +43,11 @@ class GenericUI:
     def get_pos(self):
         return self.x, self.y
 
+    def set_pos(self, x, y):
+        self.x = x
+        self.y = y
+        self.rect.x = x
+        self.rect.y = y
 
 class TextBox(GenericUI):
     def __init__(self, x, y, width, height, text='Button', text_size=25):
@@ -114,20 +119,11 @@ class ScrollList(GenericUI):
         self.selected = -1
         self.outline_thickness = 3
         self.selected_colour = (255, 0, 0)
+        self.max_offset = 0
 
-        current_y = self.outline_thickness
-        for text in texts:
-            rendered_text = self.font.render(text, True, self.text_colour).convert_alpha()
-            text_rect = rendered_text.get_rect()
-            text_rect.x = 0
-            text_rect.y = current_y
-            text_rect.width = self.width
-            self.text_rects.append(text_rect)
-            current_y += text_rect.height
-        self.max_offset = max(0, current_y-self.height-self.outline_thickness)
-
+        self.replace_list(texts)
         self.release_function = self.check_click_pos
-        self.redraw()
+
 
     def redraw(self):
         super().redraw()
@@ -154,12 +150,13 @@ class ScrollList(GenericUI):
                     self.scroll_down()
 
     def offset_text_rects(self, offset):
+        prev_offset = self.y_offset
         self.y_offset += offset
-        if -self.max_offset <= self.y_offset <= 0:
-            for text_rect in self.text_rects:
-                text_rect.y += offset
         self.y_offset = max(-self.max_offset, self.y_offset)
         self.y_offset = min(0, self.y_offset)
+        #if -self.max_offset <= self.y_offset <= 0:
+        for text_rect in self.text_rects:
+            text_rect.y += self.y_offset - prev_offset
 
     def scroll_down(self, offset=10):
         """
@@ -185,6 +182,77 @@ class ScrollList(GenericUI):
                 self.redraw()
                 return
 
+    def reset_scroll(self):
+        self.offset_text_rects(-self.y_offset)
+
+    def add_item(self, text):
+        prev_offset = self.y_offset
+        self.reset_scroll()
+        self.texts.append(text)
+        current_y = self.text_rects[-1].y + self.text_rects[-1].height
+        rendered_text = self.font.render(text, True, self.text_colour).convert_alpha()
+        text_rect = rendered_text.get_rect()
+        text_rect.x = 0
+        text_rect.y = current_y
+        text_rect.width = self.width
+        self.text_rects.append(text_rect)
+        self.max_offset = max(0, self.max_offset+text_rect.height)
+        self.offset_text_rects(prev_offset)
+        self.scroll_down(text_rect.height)
+        self.redraw()
+
+    def remove_item(self, pos=-1):
+        prev_offset = self.y_offset
+        self.reset_scroll()
+        n_items = len(self.texts)
+        if self.texts and 0 <= pos < n_items:
+            print('removing')
+            self.texts.pop(pos)
+            text_rect = self.text_rects.pop(pos)
+            self.selected = min(self.selected, n_items-2)
+            if self.texts and pos < len(self.texts):
+                for rect in self.text_rects[pos:]:
+                    rect.y -= text_rect.height
+            self.max_offset = max(0, self.max_offset-text_rect.height)
+            self.offset_text_rects(prev_offset)
+            self.scroll_up(text_rect.height)
+            self.redraw()
+
+    def replace_list(self, texts):
+        self.texts = texts
+        self.text_rects = []
+        current_y = self.outline_thickness
+        self.selected = -1
+        for text in texts:
+            rendered_text = self.font.render(text, True, self.text_colour).convert_alpha()
+            text_rect = rendered_text.get_rect()
+            text_rect.x = 0
+            text_rect.y = current_y
+            text_rect.width = self.width
+            self.text_rects.append(text_rect)
+            current_y += text_rect.height
+        self.max_offset = max(0, current_y - self.height - self.outline_thickness)
+        self.redraw()
+
+class CallPanel(GenericUI):
+    """
+    The panel to contain the UI for the player to make bids and call a partner.
+    """
+    send_output = Signal()
+
+    def __init__(self, x, y, width, height,):
+        super().__init__(x, y, width, height)
+
+        self.label1 = TextBox(0, 0, 50, 50)
+        self.list1 = ScrollList(0, 0, 50, 50, texts=[])
+        self.label2 = TextBox(0, 0, 50, 50)
+        self.list2 = ScrollList(0, 0, 50, 50, texts=[])
+
+        self.confirm_button = Button(0, 0, 50, 50)
+        self.output_box = TextBox(0, 0, 50, 50)
+
+        self.elements = [self.label1, self.list1, self.label2, self.list2,
+                         self.confirm_button, self.output_box]
 
 class TestScreen(view.PygView):
 
@@ -216,6 +284,12 @@ class TestScreen(view.PygView):
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         running = False
+                    if event.key == pygame.K_o:
+                        self.scroll_menu.add_item(str('A'))
+                    if event.key == pygame.K_p:
+                        self.scroll_menu.remove_item(0)
+                    if event.key == pygame.K_i:
+                        self.scroll_menu.replace_list(['a','b','c'])
 
                 for element in self.elements:
                     element.process_events(event)
