@@ -8,7 +8,7 @@ import copy
 import time
 from signalslot import Signal
 from ai_comp import ai
-from game_consts import GameState, PlayerRole, STARTING_HAND, NUM_OF_PLAYERS
+from game_consts import GameState, PlayerRole, STARTING_HAND, NUM_OF_PLAYERS, CALL_EVENT
 
 VIEW_TRANSPARENT = False  # Make the text box not transparent
 
@@ -49,10 +49,10 @@ class Table:
     All played cards go into a hidden discard pile.
 
     """
-    update_table = Signal()
 
     def __init__(self, x, y, width, height, clear_colour, autoplay=False, view_all_cards=False):
         # TODO: Reduce the amount of update_table call
+        self.update_table = Signal()
         self.x = x
         self.y = y
         self.width = width
@@ -195,7 +195,14 @@ class Table:
         self.calling_panel = UI.CallPanel(playdeckx[0]+w_deck+5,playdecky[0]+w_deck-140,
                                           250, 140)
         self.calling_panel.parent = self
+        self.calling_panel.visible = False
         self.parent = None
+
+        self.calling_panel.confirm_output.connect(self.emit_call)
+
+    def emit_call(self, output, **kwargs):
+        print(output)
+        pygame.event.post(pygame.event.Event(CALL_EVENT, call=output))
 
     def get_offset_pos(self):
         x, y = 0, 0
@@ -306,7 +313,6 @@ class Table:
         if draw_update:
             self.update_table.emit()
 
-
     def continue_game(self, game_events):
         """
         This is where the FSM is. State transition should occur here.
@@ -329,7 +335,7 @@ class Table:
                 self.write_message("Start to Bid")
                 self.prepare_bidding()
         elif self.game_state == GameState.BIDDING:
-            bid_complete = self.start_bidding()
+            bid_complete = self.start_bidding(game_events)
             if bid_complete:
                 self.game_state = GameState.PLAYING
                 self.update_all_players(role=True, wins=True)
@@ -385,30 +391,52 @@ class Table:
                                                  1 * (not self.first_player)) % NUM_OF_PLAYERS)
         self.write_message(msg, line=2, delay_time=1)
 
-    def start_bidding(self):
+        self.calling_panel.list1.replace_list([str(i+1) for i in range(7)])
+        self.calling_panel.list2.replace_list(['Clubs', 'Diamonds', 'Hearts', 'Spades', 'No Trump'])
+        self.calling_panel.cancel_button.visible = True
+        self.calling_panel.redraw()
+
+        self.update_table.emit()
+
+    def start_bidding(self, game_events):
         """
         The bidding procedure.
         :return: Whether bidding is completed
         """
         # Highest bid: 7 NoTrump. No further check required
         if self.passes < NUM_OF_PLAYERS - 1 and self.table_status["bid"] < 75:
-            player_bid = self.players[self.current_player].make_decision(self.game_state, 0)
+            if not self.require_player_input:
+                if not self.players[self.current_player].AI:
+                    self.require_player_input = True
+                    self.calling_panel.visible = True
+                    self.update_table.emit()
+                    return
+                else:
+                    player_bid = self.players[self.current_player].make_decision(self.game_state, 0)
+            else:
+                player_bid = self.players[self.current_player].make_decision(self.game_state, 0, game_events)
+
+                if player_bid < 0:
+                    return
+                self.require_player_input = False
+                self.calling_panel.visible = False
+                self.update_table.emit()
+
             if not player_bid:
                 if not self.first_player:  # Starting bidder pass do not count at the start
                     self.passes += 1
             else:
                 self.table_status["bid"] = player_bid
                 self.passes = 0
+                msg = "Current Bid: {0:d} {1:s}".format(self.table_status["bid"] // 10,
+                                                        cards.get_suit_string(self.table_status["bid"] % 10))
+                self.write_message(msg, line=1, update_now=False)
+                msg = 'Bid Leader: Player {0:d}'.format(self.current_player)
+                self.write_message(msg, line=2, update_now=True)
 
             if self.table_status["bid"] < 75:
                 self.current_player += 1
                 self.current_player %= NUM_OF_PLAYERS
-            msg = "Current Bid: {0:d} {1:s}".format(self.table_status["bid"] // 10,
-                                                    cards.get_suit_string(self.table_status["bid"] % 10))
-            self.write_message(msg, line=1, update_now=False)
-            msg = 'Bid Leader: Player {0:d}'.format((self.current_player - self.passes
-                                                     - 1 * (not self.first_player)) % NUM_OF_PLAYERS)
-            self.write_message(msg, line=2, update_now=False)
             self.display_current_player(self.current_player)
             if self.first_player:
                 self.first_player = False

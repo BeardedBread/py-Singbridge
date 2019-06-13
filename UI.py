@@ -5,6 +5,8 @@ from signalslot import Signal
 
 class GenericUI:
     def __init__(self, x, y, width, height):
+        self.draw_update = Signal()
+
         self.x = x
         self.y = y
         self.width = width
@@ -82,13 +84,13 @@ class TextBox(GenericUI):
 
     def redraw(self):
         super().redraw()
-        if self.visible:
-            outline = (0, 0, self.rect.w, self.rect.h)
-            pygame.draw.rect(self.background, self.outline_colour, outline, self.outline_thickness)
-            rendered_text = self.font.render(self.text, True, self.text_colour).convert_alpha()
-            rect_center = self.background.get_rect().center
-            text_rect = rendered_text.get_rect(center=rect_center)
-            self.background.blit(rendered_text, text_rect)
+        #if self.visible:
+        outline = (0, 0, self.rect.w, self.rect.h)
+        pygame.draw.rect(self.background, self.outline_colour, outline, self.outline_thickness)
+        rendered_text = self.font.render(self.text, True, self.text_colour).convert_alpha()
+        rect_center = self.background.get_rect().center
+        text_rect = rendered_text.get_rect(center=rect_center)
+        self.background.blit(rendered_text, text_rect)
 
     def set_text(self, text):
         self.text = text
@@ -112,13 +114,13 @@ class Button(TextBox):
             self.background.fill((255, 255, 255))
         else:
             super().redraw()
-        if self.visible:
-            outline = (0, 0, self.rect.w, self.rect.h)
-            pygame.draw.rect(self.background, self.outline_colour, outline, self.outline_thickness)
-            rendered_text = self.font.render(self.text, True, self.text_colour).convert_alpha()
-            rect_center = self.background.get_rect().center
-            text_rect = rendered_text.get_rect(center=rect_center)
-            self.background.blit(rendered_text, text_rect)
+        #if self.visible:
+        outline = (0, 0, self.rect.w, self.rect.h)
+        pygame.draw.rect(self.background, self.outline_colour, outline, self.outline_thickness)
+        rendered_text = self.font.render(self.text, True, self.text_colour).convert_alpha()
+        rect_center = self.background.get_rect().center
+        text_rect = rendered_text.get_rect(center=rect_center)
+        self.background.blit(rendered_text, text_rect)
 
     def hold(self, *args):
         if not self.button_down:
@@ -164,17 +166,17 @@ class ScrollList(GenericUI):
 
     def redraw(self):
         super().redraw()
-        if self.visible:
-            outline = (0, 0, self.rect.w, self.rect.h)
-            pygame.draw.rect(self.background, self.outline_colour, outline, self.outline_thickness)
-            i = 0
-            for text, text_rect in zip(self.texts, self.text_rects):
-                if i == self.selected:
-                    pygame.draw.rect(self.background, self.selected_colour, text_rect)
-                rendered_text = self.font.render(text, True, self.text_colour).convert_alpha()
+        #if self.visible:
+        outline = (0, 0, self.rect.w, self.rect.h)
+        pygame.draw.rect(self.background, self.outline_colour, outline, self.outline_thickness)
+        i = 0
+        for text, text_rect in zip(self.texts, self.text_rects):
+            if i == self.selected:
+                pygame.draw.rect(self.background, self.selected_colour, text_rect)
+            rendered_text = self.font.render(text, True, self.text_colour).convert_alpha()
 
-                self.background.blit(rendered_text, text_rect)
-                i += 1
+            self.background.blit(rendered_text, text_rect)
+            i += 1
 
     def process_events(self, event):
         draw_update = super().process_events(event)
@@ -274,6 +276,7 @@ class ScrollList(GenericUI):
             current_y += text_rect.height
         self.max_offset = max(0, current_y - self.height - self.outline_thickness)
         self.redraw()
+        self.draw_update.emit()
 
 
 class CallPanel(GenericUI):
@@ -291,7 +294,7 @@ class CallPanel(GenericUI):
         ui_width = 75
         ui_height = 25
         width_spacings = (width - 3 * ui_width - 2 * margins) / 4
-        height_spacings = (height - 2 * margins - 2 * ui_height) / 3
+        height_spacings = (height - 2 * margins - 3 * ui_height) / 4
         self.output_text = ['', '']
 
         self.label1 = TextBox(margins+width_spacings, margins,
@@ -309,33 +312,39 @@ class CallPanel(GenericUI):
         self.list2.list_selected.connect(lambda text, **z: self.print_list_selection(text, 1))
 
         self.output_box = TextBox(margins+width_spacings*3+ui_width*2, margins+height_spacings,
-                                  ui_width, ui_height, text_size=self.text_size)
+                                  ui_width, ui_height, text='Bid', text_size=self.text_size)
 
         self.confirm_button = Button(margins+width_spacings*3+ui_width*2, margins+height_spacings*2+ui_height,
                                      ui_width, ui_height, text='OK', text_size=self.text_size)
         self.confirm_button.clicked.connect(self.emit_output)
+        self.cancel_button = Button(margins + width_spacings * 3 + ui_width * 2,
+                                     margins + height_spacings * 3 + ui_height * 2,
+                                     ui_width, ui_height, text='Cancel', text_size=self.text_size)
 
+        self.cancel_button.visible = False
+        self.cancel_button.clicked.connect(self.cancelling)
         self.children = [self.label1, self.list1, self.label2, self.list2,
-                         self.confirm_button, self.output_box]
+                         self.confirm_button, self.output_box, self.cancel_button]
         for element in self.children:
             element.parent = self
 
         self.redraw()
 
-    def redraw(self):
+    def redraw(self, **kwargs):
         super().redraw()
         #self.background.fill((255,0,255))
-        if self.visible:
-            outline = (0, 0, self.rect.w, self.rect.h)
-            pygame.draw.rect(self.background, self.outline_colour, outline, self.outline_thickness)
+        #if self.visible:
+        outline = (0, 0, self.rect.w, self.rect.h)
+        pygame.draw.rect(self.background, self.outline_colour, outline, self.outline_thickness)
 
-            for element in self.children:
+        for element in self.children:
+            if element.visible:
                 self.background.blit(element.background, element.get_pos())
 
     def process_events(self, event):
         draw_update = False
         for element in self.children:
-            if element.process_events(event):
+            if element.visible and element.process_events(event):
                 draw_update = True
 
         if draw_update:
@@ -347,8 +356,16 @@ class CallPanel(GenericUI):
         self.output_box.set_text(' '.join(self.output_text))
 
     def emit_output(self, **kwargs):
-        output = self.output_text[0]+self.output_text[1][0].lower()
+        initial = ''
+        if self.output_text[1]:
+            initial = self.output_text[1][0].lower()
+
+        output = self.output_text[0].lower() + initial
         self.confirm_output.emit(output=output)
+
+    def cancelling(self, **kwargs):
+        self.confirm_output.emit(output='')
+
 
 class TestScreen(view.PygView):
 
@@ -392,6 +409,10 @@ class TestScreen(view.PygView):
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         running = False
+
+                    if event.key == pygame.K_o:
+                        self.panel.list1.replace_list([str(i+1) for i in range(7)])
+                        draw_update = True
 
                 for element in self.elements:
                     if element.process_events(event):

@@ -1,7 +1,7 @@
 import cards
 import pprint
 import pygame
-from game_consts import GameState, PlayerRole, STARTING_HAND, DOUBLE_CLICK_EVENT, DOUBLE_CLICK_TIMING
+from game_consts import GameState, PlayerRole, STARTING_HAND, DOUBLE_CLICK_EVENT, DOUBLE_CLICK_TIMING, CALL_EVENT
 
 
 class Player(cards.Deck):
@@ -57,7 +57,7 @@ class Player(cards.Deck):
             if sub_state == 0:
                 if self.AI:
                     return self.AI.make_a_bid()
-                return self.make_a_bid()
+                return self.make_a_bid(game_events=game_events)
             else:
                 if self.AI:
                     return self.AI.call_partner()
@@ -69,7 +69,7 @@ class Player(cards.Deck):
                 return self.remove_card(pos)
             return self.make_a_play(sub_state, game_events=game_events)
 
-    def make_a_bid(self):
+    def make_a_bid(self, game_events=None):
         """
         The procedure to make a bid
         :return: A valid bid number
@@ -190,6 +190,36 @@ class MainPlayer(Player):
         self.selectable = True
         self.left_mouse_down = False
         self.double_clicking = False
+
+    def make_a_bid(self, game_events=None):
+        """
+        The procedure to make a bid
+        :return: A valid bid number
+        """
+        if game_events:
+            for event in game_events:
+                if event.type == CALL_EVENT:
+                    bid = event.call
+                    print(bid)
+
+                    if not bid:
+                        return 0
+
+                    bid = cards.convert_bid_string(bid)
+                    if bid < 0:
+                        print("Error in processing bid")
+                        return -1
+
+                    if self._table_status["bid"] >= bid:
+                        if bid > 75:
+                            print("You cannot bid beyond 7 No Trump")
+                        else:
+                            print("You might need to bid higher")
+                        return -1
+                    return bid
+            return -1
+        return -1
+
 
     def make_a_play(self, substate, game_events=None):
         card = None
