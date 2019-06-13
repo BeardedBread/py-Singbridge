@@ -439,7 +439,7 @@ def convert_input_string(string):
 def convert_bid_string(string):
     string = string.lower()
     try:
-        if string[0].isdecimal() and string[1].isalpha():
+        if len(string)>1 and string[0].isdecimal() and string[1].isalpha():
             return int(string[0])*10 + BID_SYMBOLS[string[1]]//100
         return -1
     except KeyError:

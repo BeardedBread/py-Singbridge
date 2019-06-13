@@ -61,7 +61,7 @@ class Player(cards.Deck):
             else:
                 if self.AI:
                     return self.AI.call_partner()
-                return self.call_partner()
+                return self.call_partner(game_events=game_events)
         if game_state == GameState.PLAYING:
             if self.AI:
                 play = self.AI.make_a_play(sub_state)
@@ -95,7 +95,7 @@ class Player(cards.Deck):
                 else:
                     print("You might need to bid higher")
 
-    def call_partner(self):
+    def call_partner(self, game_events=None):
         """
         The procedure to call a partner
         :return: A valid card value
@@ -220,6 +220,23 @@ class MainPlayer(Player):
             return -1
         return -1
 
+    def call_partner(self, game_events=None):
+        if game_events:
+            for event in game_events:
+                if event.type == CALL_EVENT:
+                    current_card_values = self.get_deck_values()
+                    partner = event.call
+                    partner = cards.convert_input_string(partner)
+                    if partner in current_card_values:
+                        print("Please call a card outside of your hand")
+                        return False
+                    elif cards.card_check(partner):
+                        return partner
+                    else:
+                        print("Invalid card call")
+                        return False
+            return False
+        return False
 
     def make_a_play(self, substate, game_events=None):
         card = None

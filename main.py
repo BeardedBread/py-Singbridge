@@ -100,7 +100,7 @@ if __name__ == '__main__':
     with open('last_game_rng.rng', 'wb') as f:
         pickle.dump(rng_state, f)
 
-    main_view = GameScreen(1000, 700, clear_colour=(255, 0, 0),
+    main_view = GameScreen(900, 600, clear_colour=(255, 0, 0),
                            autoplay=AUTOPLAY, view_all_cards=VIEW_ALL_CARDS)
 
     main_view.run()
