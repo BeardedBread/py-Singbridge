@@ -90,10 +90,9 @@ class TextBox(GenericUI):
 
 class Button(TextBox):
 
-    clicked = Signal()
-
     def __init__(self, x, y, width, height, text='Button', text_size=25):
         self.button_down = False
+        self.clicked = Signal()
 
         super().__init__(x, y, width, height, text=text, text_size=text_size)
         self.hold_function = self.hold
@@ -122,6 +121,7 @@ class Button(TextBox):
     def release(self, *args):
         if self.button_down:
             self.button_down = False
+            self.clicked.emit()
             self.redraw()
 
 
@@ -269,10 +269,10 @@ class CallPanel(GenericUI):
     """
     The panel to contain the UI for the player to make bids and call a partner.
     """
-    send_output = Signal()
 
     def __init__(self, x, y, width, height):
         super().__init__(x, y, width, height)
+        self.confirm_output = Signal(args=['output'])
 
         self.text_size = 20
         margins = 5
@@ -288,7 +288,7 @@ class CallPanel(GenericUI):
                                 ui_width, height - 2*margins-ui_height,
                                 texts=[str(i) for i in range(4)], text_size=self.text_size)
         self.list1.list_selected.connect(lambda text, **z: self.print_list_selection(text, 0))
-        #self.list1.list_selected.connect(self.print_list_selection)
+
         self.label2 = TextBox(margins+width_spacings*2+ui_width, margins,
                               ui_width, ui_height, text='List2', text_size=self.text_size)
         self.list2 = ScrollList(margins+width_spacings*2+ui_width, margins+ui_height,
@@ -299,9 +299,9 @@ class CallPanel(GenericUI):
         self.output_box = TextBox(margins+width_spacings*3+ui_width*2, margins+height_spacings,
                                   ui_width, ui_height, text_size=self.text_size)
 
-
         self.confirm_button = Button(margins+width_spacings*3+ui_width*2, margins+height_spacings*2,
                                      ui_width, ui_height, text='OK', text_size=self.text_size)
+        self.confirm_button.clicked.connect(self.emit_output)
 
         self.children = [self.label1, self.list1, self.label2, self.list2,
                          self.confirm_button, self.output_box]
@@ -324,6 +324,10 @@ class CallPanel(GenericUI):
         self.output_text[num] = text
         self.output_box.set_text(' '.join(self.output_text))
 
+    def emit_output(self, **kwargs):
+        output = self.output_text[0]+self.output_text[1][0].lower()
+        self.confirm_output.emit(output=output)
+
 class TestScreen(view.PygView):
 
     def __init__(self, *args, **kwargs):
@@ -334,6 +338,7 @@ class TestScreen(view.PygView):
         self.button = Button(300, 100, 50, 25, text_size=18)
         self.textbox = TextBox(300, 250, 200, 100, text="Test")
         self.panel = CallPanel(0, 0, 300, 150)
+        self.panel.confirm_output.connect(self.print_panel_output)
 
         #[self.scroll_menu, self.button, self.textbox]
         self.elements = [self.panel]
@@ -346,6 +351,9 @@ class TestScreen(view.PygView):
         for element in self.elements:
             self.screen.blit(element.background, element.get_pos())
             self.screen.blit(element.background, element.get_pos())
+
+    def print_panel_output(self, output, **kwargs):
+        print(output)
 
     def run(self):
         running = True
