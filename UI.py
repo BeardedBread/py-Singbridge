@@ -23,25 +23,40 @@ class GenericUI:
         self.hold_function = None
         self.release_function = None
 
+        self.parent = None
+        self.children = None
+
     def process_events(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN:
             mouse_pos = pygame.mouse.get_pos()
-            if self.hold_function and self.rect.collidepoint(mouse_pos):
+            if self.hold_function and self.collide_at(mouse_pos):
                 self.hold_function(mouse_pos)
 
         if event.type == pygame.MOUSEBUTTONUP:
             mouse_pos = pygame.mouse.get_pos()
-            if self.release_function and self.rect.collidepoint(mouse_pos):
+            if self.release_function and self.collide_at(mouse_pos):
                 mouse_pos = pygame.mouse.get_pos()
                 if event.button == 1:
                     print('mouse click')
                     self.release_function(mouse_pos)
+
+    def collide_at(self, pos):
+        x0, y0 = self.get_offset_pos()
+        rect_check = pygame.rect.Rect(x0, y0, self.rect.width, self.rect.height)
+        return rect_check.collidepoint(pos)
 
     def redraw(self):
         self.background.fill(self.clear_colour)
 
     def get_pos(self):
         return self.x, self.y
+
+    def get_offset_pos(self):
+        x, y = 0, 0
+        if self.parent:
+            x, y = self.parent.get_offset_pos()
+
+        return x+self.x, y+self.y
 
     def set_pos(self, x, y):
         self.x = x
@@ -143,7 +158,7 @@ class ScrollList(GenericUI):
         super().process_events(event)
         if event.type == pygame.MOUSEBUTTONUP:
             mouse_pos = pygame.mouse.get_pos()
-            if self.rect.collidepoint(mouse_pos):
+            if self.collide_at(mouse_pos):
                 if event.button == 4:
                     self.scroll_up()
                 if event.button == 5:
@@ -234,25 +249,57 @@ class ScrollList(GenericUI):
         self.max_offset = max(0, current_y - self.height - self.outline_thickness)
         self.redraw()
 
+
 class CallPanel(GenericUI):
     """
     The panel to contain the UI for the player to make bids and call a partner.
     """
     send_output = Signal()
 
-    def __init__(self, x, y, width, height,):
+    def __init__(self, x, y, width, height):
         super().__init__(x, y, width, height)
 
-        self.label1 = TextBox(0, 0, 50, 50)
-        self.list1 = ScrollList(0, 0, 50, 50, texts=[])
-        self.label2 = TextBox(0, 0, 50, 50)
-        self.list2 = ScrollList(0, 0, 50, 50, texts=[])
+        self.text_size = 20
+        margins = 5
+        ui_width = 75
+        ui_height = 25
+        width_spacings = (width - 3 * ui_width - 2 * margins) / 4
+        height_spacings = (height - 2 * margins - 2 * ui_height) / 3
 
-        self.confirm_button = Button(0, 0, 50, 50)
-        self.output_box = TextBox(0, 0, 50, 50)
+        self.label1 = TextBox(margins+width_spacings, margins,
+                              ui_width, ui_height, text='List1', text_size=self.text_size)
+        self.list1 = ScrollList(margins+width_spacings, margins+ui_height,
+                                ui_width, height - 2*margins-ui_height,
+                                texts=[str(i) for i in range(4)], text_size=self.text_size)
+        self.label2 = TextBox(margins+width_spacings*2+ui_width, margins,
+                              ui_width, ui_height, text='List2', text_size=self.text_size)
+        self.list2 = ScrollList(margins+width_spacings*2+ui_width, margins+ui_height,
+                                ui_width, height - 2*margins-ui_height,
+                                texts=['a', 'b', 'c', 'd'], text_size=self.text_size)
 
-        self.elements = [self.label1, self.list1, self.label2, self.list2,
+        self.output_box = TextBox(margins+width_spacings*3+ui_width*2, margins+height_spacings,
+                                  ui_width, ui_height, text_size=self.text_size)
+
+        self.confirm_button = Button(margins+width_spacings*3+ui_width*2, margins+height_spacings*2,
+                                     ui_width, ui_height, text='OK', text_size=self.text_size)
+
+        self.children = [self.label1, self.list1, self.label2, self.list2,
                          self.confirm_button, self.output_box]
+        for element in self.children:
+            element.parent = self
+
+        self.redraw()
+
+    def redraw(self):
+        super().redraw()
+        for element in self.children:
+            self.background.blit(element.background, element.get_pos())
+
+    def process_events(self, event):
+        for element in self.children:
+            element.process_events(event)
+        self.redraw()
+
 
 class TestScreen(view.PygView):
 
@@ -263,8 +310,10 @@ class TestScreen(view.PygView):
         self.scroll_menu = ScrollList(100, 100, 100, 200, texts=texts)
         self.button = Button(300, 100, 50, 25, text_size=18)
         self.textbox = TextBox(300, 250, 200, 100, text="Test")
+        self.panel = CallPanel(0, 0, 300, 150)
 
-        self.elements = [self.scroll_menu, self.button, self.textbox]
+        #[self.scroll_menu, self.button, self.textbox]
+        self.elements = [self.panel]
 
         self.double_clicking = False
         self.left_mouse_down = False
