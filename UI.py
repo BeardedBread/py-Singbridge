@@ -83,6 +83,10 @@ class TextBox(GenericUI):
             text_rect = rendered_text.get_rect(center=rect_center)
             self.background.blit(rendered_text, text_rect)
 
+    def set_text(self, text):
+        self.text = text
+        self.redraw()
+
 
 class Button(TextBox):
 
@@ -122,10 +126,10 @@ class Button(TextBox):
 
 
 class ScrollList(GenericUI):
-    selected = Signal()
 
     def __init__(self, x, y, width, height, texts, text_size=25):
         super().__init__(x, y, width, height)
+        self.list_selected = Signal(args=['text'])
 
         self.font = pygame.font.SysFont("None", text_size)
         self.texts = texts
@@ -139,6 +143,17 @@ class ScrollList(GenericUI):
         self.replace_list(texts)
         self.release_function = self.check_click_pos
 
+    @property
+    def selected(self):
+        return self.__selected
+
+    @selected.setter
+    def selected(self, selected):
+        if selected < 0:
+            self.list_selected.emit(text='')
+        else:
+            self.list_selected.emit(text=self.texts[selected])
+        self.__selected = selected
 
     def redraw(self):
         super().redraw()
@@ -265,20 +280,25 @@ class CallPanel(GenericUI):
         ui_height = 25
         width_spacings = (width - 3 * ui_width - 2 * margins) / 4
         height_spacings = (height - 2 * margins - 2 * ui_height) / 3
+        self.output_text = ['', '']
 
         self.label1 = TextBox(margins+width_spacings, margins,
                               ui_width, ui_height, text='List1', text_size=self.text_size)
         self.list1 = ScrollList(margins+width_spacings, margins+ui_height,
                                 ui_width, height - 2*margins-ui_height,
                                 texts=[str(i) for i in range(4)], text_size=self.text_size)
+        self.list1.list_selected.connect(lambda text, **z: self.print_list_selection(text, 0))
+        #self.list1.list_selected.connect(self.print_list_selection)
         self.label2 = TextBox(margins+width_spacings*2+ui_width, margins,
                               ui_width, ui_height, text='List2', text_size=self.text_size)
         self.list2 = ScrollList(margins+width_spacings*2+ui_width, margins+ui_height,
                                 ui_width, height - 2*margins-ui_height,
                                 texts=['a', 'b', 'c', 'd'], text_size=self.text_size)
+        self.list2.list_selected.connect(lambda text, **z: self.print_list_selection(text, 1))
 
         self.output_box = TextBox(margins+width_spacings*3+ui_width*2, margins+height_spacings,
                                   ui_width, ui_height, text_size=self.text_size)
+
 
         self.confirm_button = Button(margins+width_spacings*3+ui_width*2, margins+height_spacings*2,
                                      ui_width, ui_height, text='OK', text_size=self.text_size)
@@ -300,6 +320,9 @@ class CallPanel(GenericUI):
             element.process_events(event)
         self.redraw()
 
+    def print_list_selection(self, text, num,**kwargs):
+        self.output_text[num] = text
+        self.output_box.set_text(' '.join(self.output_text))
 
 class TestScreen(view.PygView):
 
