@@ -13,6 +13,7 @@ class GenericUI:
         self.visible = True
         self.clear_colour = (0, 0, 0)
         self.outline_colour = (255, 0, 0)
+        self.outline_thickness = 3
         self.text_colour = (255, 255, 255)
 
         self.background = pygame.Surface((self.width, self.height))
@@ -27,21 +28,26 @@ class GenericUI:
         self.children = None
 
     def process_events(self, event):
+        draw_update = False
         if event.type == pygame.MOUSEBUTTONDOWN:
             mouse_pos = pygame.mouse.get_pos()
             if self.hold_function and self.collide_at(mouse_pos):
                 self.hold_function(mouse_pos)
+                draw_update = True
 
         if event.type == pygame.MOUSEBUTTONUP:
             mouse_pos = pygame.mouse.get_pos()
             if self.release_function and self.collide_at(mouse_pos):
-                mouse_pos = pygame.mouse.get_pos()
                 if event.button == 1:
                     print('mouse click')
                     self.release_function(mouse_pos)
+                    draw_update = True
+
+        return draw_update
 
     def collide_at(self, pos):
         x0, y0 = self.get_offset_pos()
+        print(x0, y0, pos)
         rect_check = pygame.rect.Rect(x0, y0, self.rect.width, self.rect.height)
         return rect_check.collidepoint(pos)
 
@@ -63,6 +69,7 @@ class GenericUI:
         self.y = y
         self.rect.x = x
         self.rect.y = y
+
 
 class TextBox(GenericUI):
     def __init__(self, x, y, width, height, text='Button', text_size=25):
@@ -170,14 +177,17 @@ class ScrollList(GenericUI):
                 i += 1
 
     def process_events(self, event):
-        super().process_events(event)
+        draw_update = super().process_events(event)
         if event.type == pygame.MOUSEBUTTONUP:
             mouse_pos = pygame.mouse.get_pos()
             if self.collide_at(mouse_pos):
                 if event.button == 4:
                     self.scroll_up()
+                    draw_update = True
                 if event.button == 5:
                     self.scroll_down()
+                    draw_update = True
+        return draw_update
 
     def offset_text_rects(self, offset):
         prev_offset = self.y_offset
@@ -203,8 +213,9 @@ class ScrollList(GenericUI):
 
     def check_click_pos(self, *args):
         pos = args[0]
-        relative_pos_x = pos[0] - self.x
-        relative_pos_y = pos[1] - self.y
+        x0, y0 = self.get_offset_pos()
+        relative_pos_x = pos[0] - x0
+        relative_pos_y = pos[1] - y0
         mouse_pos = (relative_pos_x, relative_pos_y)
         for i, rect in enumerate(self.text_rects):
             if rect.collidepoint(mouse_pos):
@@ -272,6 +283,7 @@ class CallPanel(GenericUI):
 
     def __init__(self, x, y, width, height):
         super().__init__(x, y, width, height)
+        self.background.set_colorkey(None)
         self.confirm_output = Signal(args=['output'])
 
         self.text_size = 20
@@ -299,7 +311,7 @@ class CallPanel(GenericUI):
         self.output_box = TextBox(margins+width_spacings*3+ui_width*2, margins+height_spacings,
                                   ui_width, ui_height, text_size=self.text_size)
 
-        self.confirm_button = Button(margins+width_spacings*3+ui_width*2, margins+height_spacings*2,
+        self.confirm_button = Button(margins+width_spacings*3+ui_width*2, margins+height_spacings*2+ui_height,
                                      ui_width, ui_height, text='OK', text_size=self.text_size)
         self.confirm_button.clicked.connect(self.emit_output)
 
@@ -312,13 +324,23 @@ class CallPanel(GenericUI):
 
     def redraw(self):
         super().redraw()
-        for element in self.children:
-            self.background.blit(element.background, element.get_pos())
+        #self.background.fill((255,0,255))
+        if self.visible:
+            outline = (0, 0, self.rect.w, self.rect.h)
+            pygame.draw.rect(self.background, self.outline_colour, outline, self.outline_thickness)
+
+            for element in self.children:
+                self.background.blit(element.background, element.get_pos())
 
     def process_events(self, event):
+        draw_update = False
         for element in self.children:
-            element.process_events(event)
-        self.redraw()
+            if element.process_events(event):
+                draw_update = True
+
+        if draw_update:
+            self.redraw()
+            return draw_update
 
     def print_list_selection(self, text, num,**kwargs):
         self.output_text[num] = text
@@ -337,7 +359,7 @@ class TestScreen(view.PygView):
         self.scroll_menu = ScrollList(100, 100, 100, 200, texts=texts)
         self.button = Button(300, 100, 50, 25, text_size=18)
         self.textbox = TextBox(300, 250, 200, 100, text="Test")
-        self.panel = CallPanel(0, 0, 300, 150)
+        self.panel = CallPanel(100, 100, 300, 150)
         self.panel.confirm_output.connect(self.print_panel_output)
 
         #[self.scroll_menu, self.button, self.textbox]
@@ -346,6 +368,11 @@ class TestScreen(view.PygView):
         self.double_clicking = False
         self.left_mouse_down = False
         self.double_click_event = pygame.USEREVENT + 1
+
+        self.draw_function()
+
+        pygame.display.flip()
+        self.screen.blit(self.background, (0, 0))
 
     def draw_function(self):
         for element in self.elements:
@@ -358,21 +385,17 @@ class TestScreen(view.PygView):
     def run(self):
         running = True
         while running:
+            draw_update = False
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         running = False
-                    if event.key == pygame.K_o:
-                        self.scroll_menu.add_item(str('A'))
-                    if event.key == pygame.K_p:
-                        self.scroll_menu.remove_item(0)
-                    if event.key == pygame.K_i:
-                        self.scroll_menu.replace_list(['a','b','c'])
 
                 for element in self.elements:
-                    element.process_events(event)
+                    if element.process_events(event):
+                        draw_update = True
 
                 if event.type == pygame.MOUSEBUTTONUP:
                     if event.button == 1:
@@ -390,10 +413,11 @@ class TestScreen(view.PygView):
                     self.double_clicking = False
                     print('double click disabled')
 
-            self.draw_function()
+            if draw_update:
+                self.draw_function()
 
-            pygame.display.flip()
-            self.screen.blit(self.background, (0, 0))
+                pygame.display.flip()
+                self.screen.blit(self.background, (0, 0))
 
         pygame.quit()
 

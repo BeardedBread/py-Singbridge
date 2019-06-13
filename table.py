@@ -1,4 +1,5 @@
 import pygame
+import UI
 import cards
 import players
 import view
@@ -127,7 +128,7 @@ class Table:
         self.player_stats_y = (playdecky[0] + w_deck - self.stats_height,
                                playdecky[1] - self.stats_height - stats_spacing,
                                playdecky[2],
-                               playdecky[3] + w_deck + stats_spacing)
+                               playdecky[3] - w_deck - stats_spacing)
 
         self.player_stats = [[], [], [], []]
 
@@ -190,6 +191,18 @@ class Table:
 
         self.ongoing = False
         self.require_player_input = False
+
+        self.calling_panel = UI.CallPanel(playdeckx[0]+w_deck+5,playdecky[0]+w_deck-140,
+                                          250, 140)
+        self.calling_panel.parent = self
+        self.parent = None
+
+    def get_offset_pos(self):
+        x, y = 0, 0
+        if self.parent:
+            x, y = self.parent.get_offset_pos()
+
+        return x+self.x, y+self.y
 
     def center_text_on_surface(self, surf, rendered_text, clear_colour):
         line_center = surf.get_rect().center
@@ -279,6 +292,20 @@ class Table:
 
     def get_pos(self):
         return self.x, self.y
+
+    def process_panel(self, event):
+        draw_update = False
+        if event.type == pygame.KEYUP:
+            if event.key == pygame.K_o:
+                self.calling_panel.visible = not self.calling_panel.visible
+            draw_update = True
+        if self.calling_panel.visible and \
+                self.calling_panel.process_events(event):
+            draw_update = True
+
+        if draw_update:
+            self.update_table.emit()
+
 
     def continue_game(self, game_events):
         """

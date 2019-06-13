@@ -35,6 +35,9 @@ class GameScreen(view.PygView):
                 self.screen.blit(stats_line, (self.table.player_stats_x[i],
                                               self.table.player_stats_y[i]+self.table.stats_height*j/3))
 
+        if self.table.calling_panel.visible:
+            self.screen.blit(self.table.calling_panel.background, self.table.calling_panel.get_pos())
+
         pygame.display.flip()
 
 
@@ -48,7 +51,7 @@ class GameScreen(view.PygView):
         self.running = True
         #self.player_thread.start()
         while self.running:
-
+            draw_update = False
             all_events = pygame.event.get()
             for event in all_events:
                 if event.type == pygame.QUIT:
@@ -59,9 +62,11 @@ class GameScreen(view.PygView):
                     if event.key == pygame.K_p:
                         if not self.table.ongoing:
                             self.table.ongoing = True
-
+                self.table.process_panel(event)
             if self.table.ongoing:
                 self.table.continue_game(all_events)
+
+
             #if not self.player_commands.empty():
             #    player_cmd = self.player_commands.get()
             #    print("Player Command Received: " + player_cmd)
@@ -95,7 +100,7 @@ if __name__ == '__main__':
     with open('last_game_rng.rng', 'wb') as f:
         pickle.dump(rng_state, f)
 
-    main_view = GameScreen(800, 600, clear_colour=(255, 0, 0),
+    main_view = GameScreen(1000, 700, clear_colour=(255, 0, 0),
                            autoplay=AUTOPLAY, view_all_cards=VIEW_ALL_CARDS)
 
     main_view.run()
