@@ -19,6 +19,7 @@ class PygView(object):
         self.fps = fps
         #self.playtime = 0.0
         self.font = pygame.font.SysFont('mono', 20, bold=True)
+        pygame.event.set_blocked(pygame.MOUSEMOTION)
 
     def run(self):
         """The mainloop, requires reimplementation

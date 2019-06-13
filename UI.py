@@ -196,7 +196,6 @@ class TestScreen(view.PygView):
         self.button = Button(300, 100, 50, 25, text_size=18)
         self.textbox = TextBox(300, 250, 200, 100, text="Test")
 
-
         self.elements = [self.scroll_menu, self.button, self.textbox]
 
         self.double_clicking = False
