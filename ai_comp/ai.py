@@ -12,8 +12,10 @@ import random
 import cards
 
 
-class RandomAI:
-
+class BaseAI:
+    """
+    A base class for AI implementation.
+    """
     def __init__(self, table_status, player=None):
         self.player = player
         self.table_status = table_status
@@ -21,6 +23,36 @@ class RandomAI:
     def connect_to_player(self, player):
         self.player = player
 
+    def request_reshuffle(self):
+        pass
+
+    def make_a_bid(self):
+        pass
+
+    def call_partner(self):
+        pass
+
+    def make_a_play(self, sub_state):
+        pass
+
+    def get_valid_plays(self, leading):
+        all_plays = self.player.get_deck_values()
+        possible_plays = None
+        if leading:
+            if not self.table_status['trump broken']:
+                possible_plays = [card for card in all_plays
+                                  if not cards.get_card_suit(card) == self.table_status['trump suit']]
+        else:
+            leading_suit = self.table_status['played cards'][self.table_status["leading player"]].suit()
+            possible_plays = [card for card in all_plays
+                              if cards.get_card_suit(card) == leading_suit]
+
+        if not possible_plays:
+            return all_plays
+        return possible_plays
+
+
+class RandomAI(BaseAI):
     def request_reshuffle(self):
         if random.randint(0, 1):
             return True
@@ -57,18 +89,8 @@ class RandomAI:
 
         return random.choice(valid_plays)
 
-    def get_valid_plays(self, leading):
-        all_plays = self.player.get_deck_values()
-        possible_plays = None
-        if leading:
-            if not self.table_status['trump broken']:
-                possible_plays = [card for card in all_plays
-                                  if not cards.get_card_suit(card) == self.table_status['trump suit']]
-        else:
-            leading_suit = self.table_status['played cards'][self.table_status["leading player"]].suit()
-            possible_plays = [card for card in all_plays
-                              if cards.get_card_suit(card) == leading_suit]
 
-        if not possible_plays:
-            return all_plays
-        return possible_plays
+class VivianAI(BaseAI):
+
+    def __init__(self, table_status, player=None):
+        super().__init__(table_status, player=None)

@@ -245,7 +245,7 @@ class MainPlayer(Player):
                     mouse_pos = pygame.mouse.get_pos()
                     if self.rect.collidepoint(mouse_pos):
                         reselect = self.get_selected_card(mouse_pos)
-                        if self.selected_card >= 0 and not reselect:
+                        if self.selected_card >= 0:
                             card = 1
 
                         if self.double_clicking:
@@ -257,7 +257,7 @@ class MainPlayer(Player):
                                     card = self.remove_selected_card()
                                 else:
                                     card = 1
-                                self.deselect_card()
+                            self.deselect_card()
                             self.double_clicking = False
                         else:
                             self.double_clicking = True

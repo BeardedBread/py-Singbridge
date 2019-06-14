@@ -126,6 +126,7 @@ class Deck():
         self.sort_order = sort_order
         self.selectable = selectable
         self.selected_card = -1
+        self.prev_selected = -1
 
         self.cards = []
         self.line_width = 5
@@ -305,7 +306,8 @@ class Deck():
             relative_pos_x = pos[0] - self.x
             relative_pos_y = pos[1] - self.y
             mouse_pos = (relative_pos_x, relative_pos_y)
-            prev_selected = self.selected_card
+            if self.selected_card >= 0:
+                self.prev_selected = self.selected_card
             self.selected_card = -1
             if not self.draw_from_last:
                 for i, card in enumerate(reversed(self.cards)):
@@ -319,7 +321,7 @@ class Deck():
                         break
 
             self.update_deck_display()
-            return prev_selected == self.selected_card and self.selected_card >= 0
+            return (self.prev_selected == self.selected_card)and self.selected_card >= 0
         return False
 
 
