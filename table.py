@@ -186,7 +186,7 @@ class Table:
             surf = pygame.Surface((self.announcer_width, self.announcer_height/3), pygame.SRCALPHA)
             self.announcer_line.append(surf)
 
-        self.update_all_players(role=True, wins=True)
+        self.update_all_players(role=True, wins=True, clear_wins=True)
 
         self.write_message("Press P to play!")
 
@@ -261,23 +261,38 @@ class Table:
         if update_now:
             self.update_table.emit()
 
-    def update_player_wins(self, player_num, update_now=True):
+    def update_player_wins(self, player_num, update_now=True, clear=False):
         self.player_stats[player_num][2].fill((255, 255, 255, 255*VIEW_TRANSPARENT))
-        if self.players[player_num].score > 1:
-            rendered_text = self.player_font.render("Wins: {0:d}".format(self.players[player_num].score), True,
+        if not clear:
+            if self.players[player_num].score > 1:
+                rendered_text = self.player_font.render("Wins: {0:d}".format(self.players[player_num].score), True,
+                                                        (255, 255, 255)).convert_alpha()
+            else:
+                rendered_text = self.player_font.render("Win: {0:d}".format(self.players[player_num].score), True,
+                                                        (255, 255, 255)).convert_alpha()
+            self.center_text_on_surface(self.player_stats[player_num][2], rendered_text,
+                                        (255, 255, 255, 255 * VIEW_TRANSPARENT))
+        if update_now:
+            self.update_table.emit()
+
+    def update_player_bid(self, player_num, bid, update_now=True):
+        self.player_stats[player_num][2].fill((255, 255, 255, 255 * VIEW_TRANSPARENT))
+        if not bid:
+            rendered_text = self.player_font.render("Pass".format(self.players[player_num].score), True,
                                                     (255, 255, 255)).convert_alpha()
         else:
-            rendered_text = self.player_font.render("Win: {0:d}".format(self.players[player_num].score), True,
+            bid_text = str(bid//10) + ' ' + cards.get_suit_string(bid % 10)
+            rendered_text = self.player_font.render(bid_text.format(self.players[player_num].score), True,
                                                     (255, 255, 255)).convert_alpha()
         self.center_text_on_surface(self.player_stats[player_num][2], rendered_text,
                                     (255, 255, 255, 255 * VIEW_TRANSPARENT))
         if update_now:
             self.update_table.emit()
 
-    def update_all_players(self, role=False, wins=True):
+    def update_all_players(self, role=False, wins=True, clear_wins=False):
         for i in range(NUM_OF_PLAYERS):
             if wins:
-                self.update_player_wins(i, update_now=False)
+                self.update_player_wins(i, update_now=False, clear=clear_wins)
             if role:
                 self.update_players_role(i, update_now=False)
         self.update_table.emit()
@@ -482,6 +497,7 @@ class Table:
                 self.write_message(msg, line=1, update_now=False)
                 msg = 'Bid Leader: Player {0:d}'.format(self.current_player)
                 self.write_message(msg, line=2, update_now=True)
+            self.update_player_bid(self.current_player, player_bid, update_now=False)
 
             if self.table_status["bid"] < 75:
                 self.current_player += 1
@@ -599,13 +615,6 @@ class Table:
             card_nums = [card.number() for card in self.table_status["played cards"]]
             follow_suits = [suit == leading_card.suit() for suit in card_suits]
             trumps = [suit == self.table_status['trump suit'] for suit in card_suits]
-            #trump_played = any(trumps)
-
-            # Break trump if the trump suit is played
-            #if not self.table_status['trump broken']:
-            #    if trump_played:
-            #        self.table_status['trump broken'] = True
-            #        self.write_message("Trump Broken!", delay_time=1)
 
             # Determine which players to check for winner, and determine winner
             valid_nums = [card_nums[i] * ((follow_suits[i] and not self.table_status['trump broken']) or trumps[i])
@@ -643,7 +652,6 @@ class Table:
                 self.table_status['trump broken'] = True
                 self.write_message("Trump Broken!", delay_time=1.5)
 
-
         if not self.table_status['partner reveal']:
             if card.value == self.table_status['partner']:
                 self.table_status['partner reveal'] = True
@@ -675,7 +683,7 @@ class Table:
 
         for i in range(NUM_OF_PLAYERS):
             self.update_players_role(i)
-            self.update_player_wins(i)
+            self.update_player_wins(i, clear=True)
         self.table_status['defender']['wins'] = 0
         self.table_status['attacker']['wins'] = 0
         self.table_status["played cards"] = [0]*NUM_OF_PLAYERS
@@ -684,7 +692,6 @@ class Table:
         self.write_message("", line=1, update_now=False)
         self.write_message("", line=2)
         self.display_current_player()
-        print(len(self.discard_deck))
         self.update_table.emit()
 
 

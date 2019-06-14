@@ -245,9 +245,9 @@ class VivianAI(RandomAI):
                         card_nums[i]>max_trump_played :
                     card_viability[i] *= 2 / card_nums[i]
 
-            best_viability = max(card_viability)
-            best_cards = [play for viability, play in zip(card_viability, valid_plays) if viability == best_viability]
-            return random.choice(best_cards)
+        best_viability = max(card_viability)
+        best_cards = [play for viability, play in zip(card_viability, valid_plays) if viability == best_viability]
+        return random.choice(best_cards)
 
     def update_memory(self):
         played_cards = [card.value for card in self.table_status["played cards"]]
