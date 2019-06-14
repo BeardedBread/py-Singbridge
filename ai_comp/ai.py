@@ -36,6 +36,12 @@ class BaseAI:
     def make_a_play(self, sub_state):
         pass
 
+    def update_memory(self):
+        return
+
+    def reset_memory(self):
+        return
+
     def get_valid_plays(self, leading):
         all_plays = self.player.get_deck_values()
         possible_plays = None
@@ -64,7 +70,6 @@ class RandomAI(BaseAI):
 
         :return: int - the bid
         """
-        return 0
         if self.player:
             current_round_bid = self.table_status["bid"] // 10
             current_suit_bid = self.table_status["bid"] % 10
@@ -114,6 +119,9 @@ class VivianAI(RandomAI):
         self.weigh2 = 0.002
 
         self.bid_weigh = 0.3
+
+        self.unplayed_cards = []
+        [self.unplayed_cards.append([i+2 for i in range(13)]) for _ in range(4)]
 
     def request_reshuffle(self):
         return True
@@ -178,6 +186,34 @@ class VivianAI(RandomAI):
         [all_nums.remove(num) for num in weak_nums]
         return weakest_suit*100 + max(weak_nums)
 
+    def make_an_play(self, sub_state):
+        """
+
+        :param sub_state:
+        :return: int - card value
+        """
+        # TODO: Recall last round and update memory
+
+        # Get valid plays
+        if sub_state == 0:
+            valid_plays = self.get_valid_plays(True)
+        else:
+            valid_plays = self.get_valid_plays(False)
+
+        card_viability = [0] * len(valid_plays)
+
+    def update_memory(self):
+        played_cards = [card.value for card in self.table_status["played cards"]]
+
+        for val in played_cards:
+            suit = cards.get_card_suit(val)
+            num = cards.get_card_number(val)
+
+            self.unplayed_cards[suit-1].remove(num)
+
+    def reset_memory(self):
+        self.unplayed_cards = []
+        [self.unplayed_cards.append([i+2 for i in range(13)]) for _ in range(4)]
 
     def estimate_wins(self):
         player_cards = self.player.get_deck_values()

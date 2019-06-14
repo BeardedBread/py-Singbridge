@@ -619,6 +619,10 @@ class Table:
             for deck in self.players_playzone:
                 self.discard_deck.append(deck.remove_card())
 
+            for player in self.players:
+                if player.AI:
+                    player.AI.update_memory()
+
             if self.players[winning_player].role == PlayerRole.DEFENDER:
                 self.table_status['defender']['wins'] += 1
             elif self.players[winning_player].role == PlayerRole.ATTACKER:
@@ -658,6 +662,8 @@ class Table:
                 self.discard_deck.append(player.remove_card())
             player.score = 0
             player.role = PlayerRole.UNKNOWN
+            if player.AI:
+                player.AI.reset_memory()
 
         for i in range(NUM_OF_PLAYERS):
             self.update_players_role(i)
@@ -673,14 +679,6 @@ class Table:
         print(len(self.discard_deck))
         self.update_table.emit()
 
-    def process_player_input(self, player_input):
-        # TODO: add processing player input
-        if player_input[0] == "select":
-            pass
-        elif player_input[0] == "play":
-            pass
-
-        pass
 
 class TestView(view.PygView):
 
