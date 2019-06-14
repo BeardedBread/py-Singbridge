@@ -51,8 +51,7 @@ class Player(cards.Deck):
         if game_state == GameState.POINT_CHECK:
             if self.AI:
                 return self.AI.request_reshuffle()
-            if input("Reshuffle? (y/n)").lower() == 'y':
-                return self.request_reshuffle()
+            return self.request_reshuffle(game_events=game_events)
         if game_state == GameState.BIDDING:
             if sub_state == 0:
                 if self.AI:
@@ -175,10 +174,9 @@ class Player(cards.Deck):
         suit_points += (STARTING_HAND-card_position) // 5
         return suit_points + sum(card_points)
 
-    def request_reshuffle(self):
+    def request_reshuffle(self, game_events=None):
         # Players can choose NOT to reshuffle
-        # But always reshuffle for simplicity
-        return True
+        return input("Reshuffle? (y/n)").lower() == 'y'
 
 
 class MainPlayer(Player):
@@ -274,5 +272,12 @@ class MainPlayer(Player):
                     print('double click disabled')
 
         return card
+
+    def request_reshuffle(self, game_events=None):
+        # Players can choose NOT to reshuffle
+        for event in game_events:
+            if event.type == CALL_EVENT:
+                return event.call
+        return None
 
 

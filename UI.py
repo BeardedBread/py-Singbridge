@@ -41,7 +41,7 @@ class GenericUI:
             mouse_pos = pygame.mouse.get_pos()
             if self.release_function and self.collide_at(mouse_pos):
                 if event.button == 1:
-                    print('mouse click')
+                    #print('mouse click')
                     self.release_function(mouse_pos)
                     draw_update = True
 
@@ -49,7 +49,7 @@ class GenericUI:
 
     def collide_at(self, pos):
         x0, y0 = self.get_offset_pos()
-        print(x0, y0, pos)
+        #print(x0, y0, pos)
         rect_check = pygame.rect.Rect(x0, y0, self.rect.width, self.rect.height)
         return rect_check.collidepoint(pos)
 
@@ -249,7 +249,6 @@ class ScrollList(GenericUI):
         self.reset_scroll()
         n_items = len(self.texts)
         if self.texts and 0 <= pos < n_items:
-            print('removing')
             self.texts.pop(pos)
             text_rect = self.text_rects.pop(pos)
             self.selected = min(self.selected, n_items-2)
@@ -312,14 +311,14 @@ class CallPanel(GenericUI):
         self.list2.list_selected.connect(lambda text, **z: self.print_list_selection(text, 1))
 
         self.output_box = TextBox(margins+width_spacings*3+ui_width*2, margins+height_spacings,
-                                  ui_width, ui_height, text='Bid', text_size=self.text_size)
+                                  ui_width, ui_height, text='-', text_size=self.text_size)
 
         self.confirm_button = Button(margins+width_spacings*3+ui_width*2, margins+height_spacings*2+ui_height,
-                                     ui_width, ui_height, text='OK', text_size=self.text_size)
+                                     ui_width, ui_height, text='Call', text_size=self.text_size)
         self.confirm_button.clicked.connect(self.emit_output)
         self.cancel_button = Button(margins + width_spacings * 3 + ui_width * 2,
                                      margins + height_spacings * 3 + ui_height * 2,
-                                     ui_width, ui_height, text='Cancel', text_size=self.text_size)
+                                     ui_width, ui_height, text='Pass', text_size=self.text_size)
 
         self.cancel_button.visible = False
         self.cancel_button.clicked.connect(self.cancelling)
@@ -377,7 +376,7 @@ class TestScreen(view.PygView):
         self.button = Button(300, 100, 50, 25, text_size=18)
         self.textbox = TextBox(300, 250, 200, 100, text="Test")
         self.panel = CallPanel(100, 100, 300, 150)
-        self.panel.confirm_output.connect(self.print_panel_output)
+        #self.panel.confirm_output.connect(self.print_panel_output)
 
         #[self.scroll_menu, self.button, self.textbox]
         self.elements = [self.panel]
@@ -396,8 +395,8 @@ class TestScreen(view.PygView):
             self.screen.blit(element.background, element.get_pos())
             self.screen.blit(element.background, element.get_pos())
 
-    def print_panel_output(self, output, **kwargs):
-        print(output)
+    #def print_panel_output(self, output, **kwargs):
+    #    print(output)
 
     def run(self):
         running = True

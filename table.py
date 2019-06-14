@@ -63,6 +63,7 @@ class Table:
 
         # For gameplay
         self.game_state = GameState.DEALING
+        self.reshuffling_players = []
         self.current_round = 0
         self.passes = 0
         self.current_player = 0
@@ -200,10 +201,18 @@ class Table:
 
         self.calling_panel.confirm_output.connect(self.emit_call)
 
-        self.yes_button = UI.Button(playdeckx[0]+w_deck+5,playdecky[0]+w_deck-50,
-                                    100, 50, text='yes')
-        self.no_button = UI.Button(playdeckx[0] + w_deck + 5, playdecky[0] + w_deck - 50,
-                                    100, 50)
+        self.yes_button = UI.Button(playdeckx[0]+w_deck+5,playdecky[0],
+                                    50, 25, text='yes')
+        self.yes_button.visible = False
+        self.yes_button.clicked.connect(lambda **z: pygame.event.post(pygame.event.Event(CALL_EVENT, call=True)))
+
+        self.no_button = UI.Button(playdeckx[0] + w_deck + 5, playdecky[0] + 25+25,
+                                   50, 25, text='no')
+        self.no_button.clicked.connect(lambda **z: pygame.event.post(pygame.event.Event(CALL_EVENT, call=False)))
+        self.no_button.visible = False
+
+        self.UI_elements = [self.calling_panel, self.yes_button, self.no_button]
+
 
     def emit_call(self, output, **kwargs):
         pygame.event.post(pygame.event.Event(CALL_EVENT, call=output))
@@ -304,15 +313,16 @@ class Table:
     def get_pos(self):
         return self.x, self.y
 
-    def process_panel(self, event):
+    def process_UI(self, event):
         draw_update = False
-        if event.type == pygame.KEYUP:
-            if event.key == pygame.K_o:
-                self.calling_panel.visible = not self.calling_panel.visible
-            draw_update = True
-        if self.calling_panel.visible and \
-                self.calling_panel.process_events(event):
-            draw_update = True
+        #if event.type == pygame.KEYUP:
+        #    if event.key == pygame.K_o:
+        #        self.calling_panel.visible = not self.calling_panel.visible
+        #    draw_update = True
+        for element in self.UI_elements:
+            if element.visible and \
+                    element.process_events(event):
+                draw_update = True
 
         if draw_update:
             self.update_table.emit()
@@ -327,17 +337,36 @@ class Table:
         if self.game_state == GameState.DEALING:
             self.shuffle_and_deal()
             self.write_message("Shuffle Complete!")
-            self.game_state = GameState.POINT_CHECK
+            self.reshuffling_players = []
+            for i, player in enumerate(self.players):
+                if player.get_card_points() < 4:
+                    self.write_message("Low points detected in Player {0:d}! ".format(i))
+                    self.reshuffling_players.append(i)
 
-        elif self.game_state == GameState.POINT_CHECK:
-            if self.check_reshuffle():
-                self.write_message('Reshuffle Initiated!', line=1)
-                self.game_state = GameState.ENDING
-            else:
+            if not self.reshuffling_players:
                 self.write_message('No Reshuffle needed!')
                 self.game_state = GameState.BIDDING
                 self.write_message("Start to Bid")
                 self.prepare_bidding()
+            else:
+                self.current_player = self.reshuffling_players[0]
+                self.game_state = GameState.POINT_CHECK
+
+        elif self.game_state == GameState.POINT_CHECK:
+            reshuffle = self.check_reshuffle(game_events)
+            if reshuffle is None:
+                return
+            if reshuffle is False and not self.current_player == self.reshuffling_players[-1]:
+                return
+            else:
+                if reshuffle:
+                    self.write_message('Reshuffle Initiated!', line=1)
+                    self.game_state = GameState.ENDING
+                else:
+                    self.write_message('No Reshuffle needed!')
+                    self.game_state = GameState.BIDDING
+                    self.write_message("Start to Bid")
+                    self.prepare_bidding()
         elif self.game_state == GameState.BIDDING:
             bid_complete = self.start_bidding(game_events)
             if bid_complete:
@@ -368,17 +397,35 @@ class Table:
                     player.add_card(self.discard_deck.pop())
             self.update_table.emit()
 
-    def check_reshuffle(self):
+    def check_reshuffle(self, game_events):
         """
         Detect any possible reshuffle request within the players
         :return: True if reshuffle requested, else False
         """
-        print("Player Point Count")
-        for i, player in enumerate(self.players):
-            print("Player {0:d}: {1:d}".format(i, player.get_card_points()))
-            if player.get_card_points() < 4:
-                self.write_message("Low points detected in Player {0:d}! ".format(i))
-                return player.make_decision(self.game_state, 0)
+        if not self.require_player_input:
+            if not self.players[self.current_player].AI:
+                self.require_player_input = True
+                self.write_message("Do you want a reshuffle?", line=1, update_now=False)
+                self.yes_button.visible = True
+                self.no_button.visible = True
+                self.update_table.emit()
+                return
+            else:
+                reshuffle = self.players[self.current_player].make_decision(self.game_state, 0)
+        else:
+            reshuffle = self.players[self.current_player].make_decision(self.game_state, 0, game_events)
+
+            if reshuffle is None:
+                return None
+            self.require_player_input = False
+            self.yes_button.visible = False
+            self.no_button.visible = False
+            self.update_table.emit()
+
+        self.current_player = (self.current_player + 1)%NUM_OF_PLAYERS
+        while self.current_player not in self.reshuffling_players:
+            self.current_player = (self.current_player + 1) % NUM_OF_PLAYERS
+        return reshuffle
 
     def prepare_bidding(self):
         # Randomly pick a starting player, whom also is the current bid winner
