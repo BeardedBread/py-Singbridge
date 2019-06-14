@@ -296,17 +296,17 @@ class CallPanel(GenericUI):
         height_spacings = (height - 2 * margins - 3 * ui_height) / 4
         self.output_text = ['', '']
 
-        self.label1 = TextBox(margins+width_spacings, margins,
-                              ui_width, ui_height, text='List1', text_size=self.text_size)
-        self.list1 = ScrollList(margins+width_spacings, margins+ui_height,
-                                ui_width, height - 2*margins-ui_height,
+        #self.label1 = TextBox(margins+width_spacings, margins,
+        #                      ui_width, ui_height, text='List1', text_size=self.text_size)
+        self.list1 = ScrollList(margins+width_spacings, margins,
+                                ui_width, height - 2*margins,
                                 texts=[str(i) for i in range(4)], text_size=self.text_size)
         self.list1.list_selected.connect(lambda text, **z: self.print_list_selection(text, 0))
 
-        self.label2 = TextBox(margins+width_spacings*2+ui_width, margins,
-                              ui_width, ui_height, text='List2', text_size=self.text_size)
-        self.list2 = ScrollList(margins+width_spacings*2+ui_width, margins+ui_height,
-                                ui_width, height - 2*margins-ui_height,
+        #self.label2 = TextBox(margins+width_spacings*2+ui_width, margins,
+        #                      ui_width, ui_height, text='List2', text_size=self.text_size)
+        self.list2 = ScrollList(margins+width_spacings*2+ui_width, margins,
+                                ui_width, height - 2*margins,
                                 texts=['a', 'b', 'c', 'd'], text_size=self.text_size)
         self.list2.list_selected.connect(lambda text, **z: self.print_list_selection(text, 1))
 
@@ -322,7 +322,8 @@ class CallPanel(GenericUI):
 
         self.cancel_button.visible = False
         self.cancel_button.clicked.connect(self.cancelling)
-        self.children = [self.label1, self.list1, self.label2, self.list2,
+        #self.children = [self.label1, self.list1, self.label2, self.list2,
+        self.children = [self.list1, self.list2,
                          self.confirm_button, self.output_box, self.cancel_button]
         for element in self.children:
             element.parent = self
