@@ -64,6 +64,7 @@ class RandomAI(BaseAI):
 
         :return: int - the bid
         """
+        return 0
         if self.player:
             current_round_bid = self.table_status["bid"] // 10
             current_suit_bid = self.table_status["bid"] % 10
@@ -142,6 +143,42 @@ class VivianAI(RandomAI):
                 return next_bid_num*10 + favourable_suit
         return 0
 
+    def call_partner(self):
+        """
+
+        :return: int - the card value
+        """
+        player_cards = self.player.get_deck_values()
+        card_suits = [cards.get_card_suit(crd) for crd in player_cards]
+        card_nums = [cards.get_card_number(crd) for crd in player_cards]
+        trump_suit = self.table_status["bid"] % 10
+        trump_nums = [num for suit, num in zip(card_suits, card_nums) if suit == trump_suit]
+
+        if 14 not in trump_nums:
+            return trump_suit*100 + 14
+        if 13 not in trump_nums:
+            return trump_suit*100 + 13
+        if 12 not in trump_nums:
+            return trump_suit*100 + 12
+
+        suit_values = []
+
+        for i in range(4):
+            suit_values.append(sum([num for suit, num in zip(card_suits, card_nums) if suit == i+1]))
+
+        min_val = min(suit_values)
+        weakest_suit = [i + 1 for i, val in enumerate(suit_values) if suit_values == min_val]
+        if len(weakest_suit) > 1:
+            weakest_suit = random.choice(weakest_suit)
+        else:
+            weakest_suit = weakest_suit[0]
+
+        all_nums = [i+2 for i in range(13)]
+        weak_nums = [num for suit, num in zip(card_suits, card_nums) if suit == weakest_suit]
+        [all_nums.remove(num) for num in weak_nums]
+        return weakest_suit*100 + max(weak_nums)
+
+
     def estimate_wins(self):
         player_cards = self.player.get_deck_values()
         card_suits = [cards.get_card_suit(crd) for crd in player_cards]
@@ -152,7 +189,7 @@ class VivianAI(RandomAI):
             n_cards.append(card_suits.count(i+1))
 
         bids = [0] * 5
-        trump_points = [num-10 if num >=10 else 0.001 for num in card_nums]
+        trump_points = [num-10 if num >= 10 else 0.001 for num in card_nums]
         non_trump_points = [self.calc_win_points(num, n_cards[suit-1]) if num > 10 else 0.001
                             for (num, suit) in zip(card_nums, card_suits)]
 
