@@ -103,6 +103,6 @@ if __name__ == '__main__':
 
 
     main_view = GameScreen(900, 600, clear_colour=(255, 0, 0),
-                           autoplay=AUTOPLAY, view_all_cards=VIEW_ALL_CARDS)
+                           autoplay=True, view_all_cards=VIEW_ALL_CARDS)
 
     main_view.run()

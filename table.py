@@ -172,7 +172,7 @@ class Table:
                 self.player_stats[i].append(surf)
 
         if autoplay:
-            self.players[0].add_ai(ai.RandomAI(self.table_status))
+            self.players[0].add_ai(ai.VivianAI(self.table_status))
 
         # Announcer positioning and surface creation
         announcer_margins = 5
