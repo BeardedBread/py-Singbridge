@@ -175,7 +175,7 @@ class VivianAI(RandomAI):
             suit_values.append(sum([num for suit, num in zip(card_suits, card_nums) if suit == i+1]))
 
         min_val = min(suit_values)
-        weakest_suit = [i + 1 for i, val in enumerate(suit_values) if suit_values == min_val]
+        weakest_suit = [i + 1 for i, val in enumerate(suit_values) if val == min_val]
         if len(weakest_suit) > 1:
             weakest_suit = random.choice(weakest_suit)
         else:
@@ -184,9 +184,9 @@ class VivianAI(RandomAI):
         all_nums = [i+2 for i in range(13)]
         weak_nums = [num for suit, num in zip(card_suits, card_nums) if suit == weakest_suit]
         [all_nums.remove(num) for num in weak_nums]
-        return weakest_suit*100 + max(weak_nums)
+        return weakest_suit*100 + max(all_nums)
 
-    def make_an_play(self, sub_state):
+    def make_a_play(self, sub_state):
         """
 
         :param sub_state:
@@ -200,7 +200,54 @@ class VivianAI(RandomAI):
         else:
             valid_plays = self.get_valid_plays(False)
 
-        card_viability = [0] * len(valid_plays)
+        n_cards = len(valid_plays)
+        card_viability = [1] * n_cards
+        card_nums = [cards.get_card_number(play) for play in valid_plays]
+        card_suits = [cards.get_card_suit(play) for play in valid_plays]
+        high_cards = [max(card_set) if card_set else 0 for card_set in self.unplayed_cards]
+
+        suit_counts = [0] * 4
+        for i in range(4):
+            suit_counts[i] = card_suits.count(i+1)
+
+        non_empty_suits = [i+1 for i, count in enumerate(suit_counts) if count]
+        suit_counts = [count for count in suit_counts if count]
+
+        min_suit_count = min(suit_counts)
+        low_suits = [suit for suit, counts in zip(non_empty_suits, suit_counts) if counts == min_suit_count]
+
+        for i in range(n_cards):
+            card_viability[i] += any([card_suits[i] == s for s in low_suits]) / min_suit_count
+
+        # Leading-specific viability
+        if sub_state == 0:
+            for i in range(n_cards):
+                card_viability[i] += any([valid_plays[i] == card for card in high_cards]) * 1.2
+        else:
+            played_cards = [card.value if card else None for card in self.table_status["played cards"]]
+            played_nums = [cards.get_card_number(card) if card else 0 for card in played_cards]
+            played_suits = [cards.get_card_suit(card) if card else 0 for card in played_cards]
+
+            trumped = any([suit == self.table_status['trump suit'] for suit in played_suits])
+            max_played_num = max(played_nums)
+            max_trump_played = [num for suit, num in zip(played_suits, played_nums)
+                                if suit == self.table_status['trump suit']]
+            if max_trump_played:
+                max_trump_played = max(max_trump_played)
+            else:
+                max_trump_played = 1
+
+            for i in range(n_cards):
+                if trumped and card_suits[i] != self.table_status['trump suit']:
+                    card_viability[i] *= card_nums[i]/7
+                card_viability[i] += (card_nums[i] < max_played_num) / card_nums[i]
+                if card_suits[i] == self.table_status['trump suit'] and\
+                        card_nums[i]>max_trump_played :
+                    card_viability[i] *= 2 / card_nums[i]
+
+            best_viability = max(card_viability)
+            best_cards = [play for viability, play in zip(card_viability, valid_plays) if viability == best_viability]
+            return random.choice(best_cards)
 
     def update_memory(self):
         played_cards = [card.value for card in self.table_status["played cards"]]

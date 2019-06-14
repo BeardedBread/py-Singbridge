@@ -599,16 +599,16 @@ class Table:
             card_nums = [card.number() for card in self.table_status["played cards"]]
             follow_suits = [suit == leading_card.suit() for suit in card_suits]
             trumps = [suit == self.table_status['trump suit'] for suit in card_suits]
-            trump_played = any(trumps)
+            #trump_played = any(trumps)
 
             # Break trump if the trump suit is played
-            if not self.table_status['trump broken']:
-                if trump_played:
-                    self.table_status['trump broken'] = True
-                    self.write_message("Trump Broken!", delay_time=1)
+            #if not self.table_status['trump broken']:
+            #    if trump_played:
+            #        self.table_status['trump broken'] = True
+            #        self.write_message("Trump Broken!", delay_time=1)
 
             # Determine which players to check for winner, and determine winner
-            valid_nums = [card_nums[i] * ((follow_suits[i] and not trump_played) or trumps[i])
+            valid_nums = [card_nums[i] * ((follow_suits[i] and not self.table_status['trump broken']) or trumps[i])
                           for i in range(NUM_OF_PLAYERS)]
             winning_player = valid_nums.index(max(valid_nums))
             self.write_message("Player {0:d} wins!\n".format(winning_player), delay_time=1)
@@ -635,6 +635,14 @@ class Table:
             self.current_round += 1
             self.update_table.emit()
             return
+
+        # Break trump if the trump suit is played
+        if not self.table_status['trump broken']:
+            trump_played = card.suit() == self.table_status['trump suit']
+            if trump_played:
+                self.table_status['trump broken'] = True
+                self.write_message("Trump Broken!", delay_time=1.5)
+
 
         if not self.table_status['partner reveal']:
             if card.value == self.table_status['partner']:
