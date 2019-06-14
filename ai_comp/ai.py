@@ -10,6 +10,7 @@ AI should not modify the player cards and table data. They are read only.
 """
 import random
 import cards
+import math
 
 
 class BaseAI:
@@ -90,7 +91,76 @@ class RandomAI(BaseAI):
         return random.choice(valid_plays)
 
 
-class VivianAI(BaseAI):
+class VivianAI(RandomAI):
 
     def __init__(self, table_status, player=None):
-        super().__init__(table_status, player=None)
+        super().__init__(table_status, player=player)
+
+        self.weigh1 = 0.15
+        self.weigh2 = 0.002
+
+    def request_reshuffle(self):
+        return True
+
+    def make_a_bid(self):
+        if self.player:
+            current_round_bid = self.table_status["bid"] // 10
+            current_suit_bid = self.table_status["bid"] % 10
+            bid_threshold = int(current_round_bid*1.5 + current_suit_bid*0.5)
+            gen_bid = random.randint(0, bid_threshold)
+            print(gen_bid)
+            if gen_bid <= 1:
+                if current_suit_bid == 5:
+                    return (current_round_bid+1)*10 + 1
+                else:
+                    return self.table_status["bid"]+1
+
+    def estimate_wins(self):
+        player_cards = self.player.get_deck_values()
+        card_suits = [cards.get_card_suit(crd) for crd in player_cards]
+        card_nums = [cards.get_card_number(crd) for crd in player_cards]
+
+        n_cards = []
+        for i in range(4):
+            n_cards.append(card_suits.count(i))
+
+        bids = [0] * 5
+        trump_points = [num-10 if num >=10 else 0.001 for num in card_nums]
+        non_trump_points = [self.calc_win_points(num, n_cards[suit]) if num >= 10 else 0.001
+                            for (num, suit) in zip(card_nums, card_suits)]
+
+        for trump_call in range(5):
+            for suit in range(4):
+                valid_cards = [crd_suit == suit for crd_suit in card_suits]
+                if suit == trump_call:
+                    points = sum([pts for valid, pts in zip(valid_cards, trump_points) if valid])
+                    bids[trump_call] = points*n_cards[suit]
+                else:
+                    points = sum([pts for valid, pts in zip(valid_cards, non_trump_points) if valid])
+                    bids[trump_call] = points*math.log(n_cards[suit]+1)
+
+    def calc_win_points(self, card_num, n_cards):
+        """
+        Calculate the points which affects the bidding decision depending on which card is considered
+        and the number of card available
+        :param card_num: int 2-14
+        :param n_cards: int
+        :return: float score
+        """
+
+        num = min(0, card_num-10)
+
+        if not n_cards:
+            return 0
+
+        if num <= n_cards:
+            return math.exp(n_cards-1)-1
+
+        return 19.167/n_cards
+
+
+
+
+
+
+
