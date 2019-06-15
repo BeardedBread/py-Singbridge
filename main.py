@@ -8,8 +8,8 @@ This script is to run the game. It would process any input argument and pass int
 """
 
 if __name__ == '__main__':
-    AUTOPLAY = False
-    VIEW_ALL_CARDS = False
+    AUTOPLAY = True
+    VIEW_ALL_CARDS = True
     TERMINAL = False
 
     if len(sys.argv) > 1:

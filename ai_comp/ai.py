@@ -244,10 +244,18 @@ class VivianAI(RandomAI):
                 max_trump_played = 1
 
             for i in range(n_cards):
+                # Favour highest cards
+                card_viability[i] += (card_suits[i] == leading_suit & card_nums[i] == high_cards[leading_suit-1]) * 1.2
+
+                # Favour low cards if trumped
                 if trumped:
                     card_viability[i] -= card_nums[i]/7 * (card_suits[i] != self.table_status['trump suit'])
 
-                card_viability[i] += (card_nums[i] < max_played_num) / card_nums[i]
+                # Favour low cards if cannot higher
+                if max(card_nums) < max_played_num:
+                    card_viability[i] += 1 / card_nums[i]
+
+                # Favour low trump cards which wins if trumping is possible
                 if card_suits[i] == self.table_status['trump suit'] and\
                         card_nums[i] > max_trump_played:
                     card_viability[i] *= 2 / card_nums[i]
