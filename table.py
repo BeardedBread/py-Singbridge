@@ -250,14 +250,18 @@ class Table:
 
     def update_players_role(self, player_num, update_now=True):
         self.player_stats[player_num][1].fill((255, 255, 255, 255*VIEW_TRANSPARENT))
-        if self.players[player_num].role == PlayerRole.DEFENDER:
-            rendered_text = self.player_font.render("Defender", True, (0, 64, 192)).convert_alpha()
-            self.center_text_on_surface(self.player_stats[player_num][1], rendered_text,
-                                        (255, 255, 255, 255 * VIEW_TRANSPARENT))
+        role_text = ''
+        colour = (128, 64, 192)
+        if self.players[player_num].role == PlayerRole.DECLARER:
+            role_text = 'Declarer'
         elif self.players[player_num].role == PlayerRole.ATTACKER:
-            rendered_text = self.player_font.render("Attacker", True, (192, 0, 0)).convert_alpha()
-            self.center_text_on_surface(self.player_stats[player_num][1], rendered_text,
-                                        (255, 255, 255, 255 * VIEW_TRANSPARENT))
+            role_text = 'Attacker'
+            colour = (192, 0, 0)
+        elif self.players[player_num].role == PlayerRole.PARTNER:
+            role_text = 'Partner'
+        rendered_text = self.player_font.render(role_text, True, colour).convert_alpha()
+        self.center_text_on_surface(self.player_stats[player_num][1], rendered_text,
+                                    (255, 255, 255, 255 * VIEW_TRANSPARENT))
         if update_now:
             self.update_table.emit()
 
@@ -453,6 +457,7 @@ class Table:
                                                 cards.get_suit_string(self.table_status["bid"] % 10))
         self.write_message(msg, line=1, delay_time=0)
         self.display_current_player(self.current_player)
+        self.update_player_bid(self.current_player, 11, update_now=False)
         msg = 'Bid Leader: Player {0:d}'.format((self.current_player - self.passes -
                                                  1 * (not self.first_player)) % NUM_OF_PLAYERS)
         self.write_message(msg, line=2, delay_time=1)
@@ -497,14 +502,15 @@ class Table:
                 self.write_message(msg, line=1, update_now=False)
                 msg = 'Bid Leader: Player {0:d}'.format(self.current_player)
                 self.write_message(msg, line=2, update_now=True)
-            self.update_player_bid(self.current_player, player_bid, update_now=False)
-
+            if self.first_player:
+                self.first_player = False
+            else:
+                self.update_player_bid(self.current_player, player_bid, update_now=False)
             if self.table_status["bid"] < 75:
                 self.current_player += 1
                 self.current_player %= NUM_OF_PLAYERS
             self.display_current_player(self.current_player)
-            if self.first_player:
-                self.first_player = False
+
             time.sleep(0.5)
             if self.passes == NUM_OF_PLAYERS - 1 or self.table_status["bid"] == 75:
                 self.calling_panel.list1.replace_list(['2','3','4','5','6','7','8','9','10','J','Q','K','A'])
@@ -550,7 +556,7 @@ class Table:
             self.table_status['attacker']['target'] = 14 - self.table_status['defender']['target']
 
             # Set the roles of the players
-            self.players[self.current_player].role = PlayerRole.DEFENDER
+            self.players[self.current_player].role = PlayerRole.DECLARER
 
             self.write_message('Bidding Complete', delay_time=0)
             msg = 'Trump: {1:s}, Partner: {0:s}'.format(cards.get_card_string(self.table_status["partner"]),
@@ -632,7 +638,8 @@ class Table:
                 if player.AI:
                     player.AI.update_memory()
 
-            if self.players[winning_player].role == PlayerRole.DEFENDER:
+            if self.players[winning_player].role == PlayerRole.DECLARER or\
+               self.players[winning_player].role == PlayerRole.PARTNER :
                 self.table_status['defender']['wins'] += 1
             elif self.players[winning_player].role == PlayerRole.ATTACKER:
                 self.table_status['attacker']['wins'] += 1
@@ -665,7 +672,7 @@ class Table:
         time.sleep(0.5)
 
     def reveal_all_roles(self, partner):
-        self.players[partner].role = PlayerRole.DEFENDER
+        self.players[partner].role = PlayerRole.PARTNER
         self.table_status['defender']['wins'] += self.players[partner].score
         for i in range(NUM_OF_PLAYERS):
             if self.players[i].role == PlayerRole.UNKNOWN:

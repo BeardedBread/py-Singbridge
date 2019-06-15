@@ -12,7 +12,8 @@ class GameState(Enum):
 class PlayerRole(Enum):
     UNKNOWN = 0
     ATTACKER = 1
-    DEFENDER = 2
+    DECLARER = 2
+    PARTNER = 3
 
 
 NUM_OF_PLAYERS = 4
