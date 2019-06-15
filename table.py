@@ -712,10 +712,12 @@ class Table:
     def reveal_all_roles(self, partner):
         """
         Update all roles once the partner card is shown
+        Also updates the partner to the player number
         :param partner:
         :return:
         """
         self.players[partner].role = PlayerRole.PARTNER
+        self.table_status["partner"] = partner
         self.table_status['defender']['wins'] += self.players[partner].score
         for i in range(NUM_OF_PLAYERS):
             if self.players[i].role == PlayerRole.UNKNOWN:

@@ -204,7 +204,7 @@ class VivianAI(RandomAI):
         card_viability = [1] * n_cards
         card_nums = [cards.get_card_number(play) for play in valid_plays]
         card_suits = [cards.get_card_suit(play) for play in valid_plays]
-        high_cards = [max(card_set) if card_set else 0 for card_set in self.unplayed_cards]
+        high_cards = [max(card_set) + (i+1)*100 if card_set else 0 for i, card_set in enumerate(self.unplayed_cards)]
 
         suit_counts = [0] * 4
         for i in range(4):
@@ -224,12 +224,18 @@ class VivianAI(RandomAI):
             for i in range(n_cards):
                 card_viability[i] += any([valid_plays[i] == card for card in high_cards]) * 1.2
         else:
+            # Get the played cards
             played_cards = [card.value if card else None for card in self.table_status["played cards"]]
             played_nums = [cards.get_card_number(card) if card else 0 for card in played_cards]
             played_suits = [cards.get_card_suit(card) if card else 0 for card in played_cards]
+            leading_card = self.table_status["played cards"][self.table_status["leading player"]]
+            leading_suit = leading_card.suit()
 
+            # Find any trump cards
             trumped = any([suit == self.table_status['trump suit'] for suit in played_suits])
-            max_played_num = max(played_nums)
+
+            # Find the highest number played,
+            max_played_num = max([num for num, suit in zip(played_nums, played_suits) if suit == leading_suit])
             max_trump_played = [num for suit, num in zip(played_suits, played_nums)
                                 if suit == self.table_status['trump suit']]
             if max_trump_played:
@@ -238,12 +244,16 @@ class VivianAI(RandomAI):
                 max_trump_played = 1
 
             for i in range(n_cards):
-                if trumped and card_suits[i] != self.table_status['trump suit']:
-                    card_viability[i] *= card_nums[i]/7
+                if trumped:
+                    card_viability[i] -= card_nums[i]/7 * (card_suits[i] != self.table_status['trump suit'])
+
                 card_viability[i] += (card_nums[i] < max_played_num) / card_nums[i]
                 if card_suits[i] == self.table_status['trump suit'] and\
-                        card_nums[i]>max_trump_played :
+                        card_nums[i] > max_trump_played:
                     card_viability[i] *= 2 / card_nums[i]
+
+        if self.table_status["partner reveal"]:
+            pass
 
         best_viability = max(card_viability)
         best_cards = [play for viability, play in zip(card_viability, valid_plays) if viability == best_viability]
