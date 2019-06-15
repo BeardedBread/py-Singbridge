@@ -21,7 +21,7 @@ When running `main.py`, you can give options:
 * `-a` or `--autoplay`: To run the game with all bots
 * `-va` or `--view-all`: All player cards are revealed
 * `-s` or `--seed` followed by a file path: To run the game with a specified RNG seed
-
+* `-t` or `--terminal`: To play with legacy terminal inputting
 An example command:
 
 `python main.py -a -s ./seeds/low_point_hand.rng`
