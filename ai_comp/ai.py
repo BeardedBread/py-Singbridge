@@ -235,9 +235,6 @@ class VivianAI(RandomAI):
             leading_card = self.table_status["played cards"][self.table_status["leading player"]]
             leading_suit = leading_card.suit()
 
-            # Find any trump cards
-            #trumped = any([suit == self.table_status['trump suit'] for suit in played_suits])
-
             # Find the highest number played,
             max_played_num = max([num for num, suit in zip(played_nums, played_suits) if suit == leading_suit])
             max_trump_played = [num for suit, num in zip(played_suits, played_nums)

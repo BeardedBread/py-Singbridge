@@ -239,125 +239,6 @@ class Table:
         surf.fill(clear_colour)
         surf.blit(rendered_text, text_rect)
 
-    def write_message(self, text, delay_time=0.5, line=0, update_now=True):
-        """
-        Write a message into the center board surface (announcer)
-        :param text: String to be displayed on the center board
-        :param delay_time: How much delay to put once the string is display
-        :param line: Which line of the announcer to write to
-        :return: None
-        """
-        if 0 <= line < len(self.announcer_line):
-            print(text)
-            text = text.strip('\n')
-            rendered_text = self.table_font.render(text, True, (255, 255, 255)).convert_alpha()
-            self.center_text_on_surface(self.announcer_line[line], rendered_text,
-                                        (255, 255, 255, 255*VIEW_TRANSPARENT))
-            if update_now:
-                self.update_table.emit()
-                time.sleep(delay_time)
-
-    def update_players_role(self, player_num, update_now=True):
-        """
-        Update the display of the player roles. Blank if UNKNOWN
-        :param player_num:
-        :param update_now:
-        :return:
-        """
-        self.player_stats[player_num][1].fill((255, 255, 255, 255*VIEW_TRANSPARENT))
-        role_text = ''
-        colour = (128, 64, 192)
-        if self.players[player_num].role == PlayerRole.DECLARER:
-            role_text = 'Declarer'
-        elif self.players[player_num].role == PlayerRole.ATTACKER:
-            role_text = 'Attacker'
-            colour = (192, 0, 0)
-        elif self.players[player_num].role == PlayerRole.PARTNER:
-            role_text = 'Partner'
-        rendered_text = self.player_font.render(role_text, True, colour).convert_alpha()
-        self.center_text_on_surface(self.player_stats[player_num][1], rendered_text,
-                                    (255, 255, 255, 255 * VIEW_TRANSPARENT))
-        if update_now:
-            self.update_table.emit()
-
-    def update_player_wins(self, player_num, update_now=True, clear=False):
-        """
-        Update the display of player's number of wins.
-        :param player_num:
-        :param update_now:
-        :param clear:
-        :return:
-        """
-        self.player_stats[player_num][2].fill((255, 255, 255, 255*VIEW_TRANSPARENT))
-        if not clear:
-            if self.players[player_num].score > 1:
-                rendered_text = self.player_font.render("Wins: {0:d}".format(self.players[player_num].score), True,
-                                                        (255, 255, 255)).convert_alpha()
-            else:
-                rendered_text = self.player_font.render("Win: {0:d}".format(self.players[player_num].score), True,
-                                                        (255, 255, 255)).convert_alpha()
-            self.center_text_on_surface(self.player_stats[player_num][2], rendered_text,
-                                        (255, 255, 255, 255 * VIEW_TRANSPARENT))
-        if update_now:
-            self.update_table.emit()
-
-    def update_player_bid(self, player_num, bid, update_now=True):
-        """
-        Update the display of the player's last bid.
-        :param player_num:
-        :param update_now:
-        :param clear:
-        :return:
-        """
-        self.player_stats[player_num][2].fill((255, 255, 255, 255 * VIEW_TRANSPARENT))
-        if not bid:
-            rendered_text = self.player_font.render("Pass".format(self.players[player_num].score), True,
-                                                    (255, 255, 255)).convert_alpha()
-        else:
-            bid_text = str(bid//10) + ' ' + cards.get_suit_string(bid % 10)
-            rendered_text = self.player_font.render(bid_text.format(self.players[player_num].score), True,
-                                                    (255, 255, 255)).convert_alpha()
-        self.center_text_on_surface(self.player_stats[player_num][2], rendered_text,
-                                    (255, 255, 255, 255 * VIEW_TRANSPARENT))
-        if update_now:
-            self.update_table.emit()
-
-    def update_all_players(self, role=False, wins=True, clear_wins=False):
-        for i in range(NUM_OF_PLAYERS):
-            if wins:
-                self.update_player_wins(i, update_now=False, clear=clear_wins)
-            if role:
-                self.update_players_role(i, update_now=False)
-        self.update_table.emit()
-
-    def display_current_player(self, current=-1):
-        if current >= 0:
-            print("Player {0:d}\n".format(current))
-        for i in range(NUM_OF_PLAYERS):
-            rendered_text = self.player_font.render("Player {0:d}".format(i), True,
-                                                    (255, 0, 255)).convert_alpha()
-            if i == current:
-                self.center_text_on_surface(self.player_stats[i][0], rendered_text,
-                                            (0, 64, 0, 255))
-            else:
-                self.center_text_on_surface(self.player_stats[i][0], rendered_text,
-                                            (255, 255, 255, 255 * VIEW_TRANSPARENT))
-
-        self.update_table.emit()
-
-    def update_team_scores(self):
-        if self.table_status['partner reveal']:
-            msg = "Defender: {0:d}/{2:d}, Attacker: {1:d}/{3:d}\n".format(self.table_status['defender']['wins'],
-                                                                          self.table_status['attacker']['wins'],
-                                                                          self.table_status['defender']['target'],
-                                                                          self.table_status['attacker']['target'])
-            self.write_message(msg, line=2)
-        else:
-            msg = "Defender: {0:d}?/{1:d}, Attacker: ?/{2:d}\n".format(self.table_status['defender']['wins'],
-                                                                       self.table_status['defender']['target'],
-                                                                       self.table_status['attacker']['target'])
-            self.write_message(msg, line=2)
-
     def get_pos(self):
         return self.x, self.y
 
@@ -617,6 +498,10 @@ class Table:
         :return: None
         """
         if not any(self.table_status["played cards"]):
+            if self.table_status['trump broken']:
+                self.write_message("Trump has been broken!", delay_time=0)
+            else:
+                self.write_message("Trump is not broken", delay_time=0)
             # Leading player starts with the leading card, which determines the leading suit
             if not self.require_player_input:
                 self.current_player = self.table_status['leading player']
@@ -687,7 +572,7 @@ class Table:
                     player.AI.update_memory()
 
             if self.players[winning_player].role == PlayerRole.DECLARER or\
-               self.players[winning_player].role == PlayerRole.PARTNER :
+               self.players[winning_player].role == PlayerRole.PARTNER:
                 self.table_status['defender']['wins'] += 1
             elif self.players[winning_player].role == PlayerRole.ATTACKER:
                 self.table_status['attacker']['wins'] += 1
@@ -698,14 +583,19 @@ class Table:
             self.table_status["played cards"] = [0]*NUM_OF_PLAYERS
             self.current_round += 1
             self.update_table.emit()
+
             return
+
+        if self.table_status['trump broken']:
+            self.write_message("Trump has been broken!", delay_time=0)
+        else:
+            self.write_message("Trump is not broken", delay_time=0)
 
         # Break trump if the trump suit is played
         if not self.table_status['trump broken']:
-            trump_played = card.suit() == self.table_status['trump suit']
-            if trump_played:
-                self.table_status['trump broken'] = True
-                self.write_message("Trump Broken!", delay_time=1)
+            self.table_status['trump broken'] = card.suit() == self.table_status['trump suit']
+            if self.table_status['trump broken']:
+                self.write_message("Trump broken!", delay_time=1)
 
         if not self.table_status['partner reveal']:
             if card.value == self.table_status['partner']:
@@ -716,8 +606,128 @@ class Table:
 
         self.current_player += 1
         self.current_player %= NUM_OF_PLAYERS
-        self.update_table.emit()
         time.sleep(0.5)
+
+    def write_message(self, text, delay_time=0.5, line=0, update_now=True):
+        """
+        Write a message into the center board surface (announcer)
+        :param text: String to be displayed on the center board
+        :param delay_time: How much delay to put once the string is display
+        :param line: Which line of the announcer to write to
+        :param update_now:
+        :return: None
+        """
+        if 0 <= line < len(self.announcer_line):
+            print(text)
+            text = text.strip('\n')
+            rendered_text = self.table_font.render(text, True, (255, 255, 255)).convert_alpha()
+            self.center_text_on_surface(self.announcer_line[line], rendered_text,
+                                        (255, 255, 255, 255*VIEW_TRANSPARENT))
+            if update_now:
+                self.update_table.emit()
+                time.sleep(delay_time)
+
+    def update_players_role(self, player_num, update_now=True):
+        """
+        Update the display of the player roles. Blank if UNKNOWN
+        :param player_num:
+        :param update_now:
+        :return:
+        """
+        self.player_stats[player_num][1].fill((255, 255, 255, 255*VIEW_TRANSPARENT))
+        role_text = ''
+        colour = (0, 239, 224)
+        if self.players[player_num].role == PlayerRole.DECLARER:
+            role_text = 'Declarer'
+        elif self.players[player_num].role == PlayerRole.ATTACKER:
+            role_text = 'Attacker'
+            colour = (225, 0, 0)
+        elif self.players[player_num].role == PlayerRole.PARTNER:
+            role_text = 'Partner'
+        rendered_text = self.player_font.render(role_text, True, colour).convert_alpha()
+        self.center_text_on_surface(self.player_stats[player_num][1], rendered_text,
+                                    (255, 255, 255, 255 * VIEW_TRANSPARENT))
+        if update_now:
+            self.update_table.emit()
+
+    def update_player_wins(self, player_num, update_now=True, clear=False):
+        """
+        Update the display of player's number of wins.
+        :param player_num:
+        :param update_now:
+        :param clear:
+        :return:
+        """
+        self.player_stats[player_num][2].fill((255, 255, 255, 255*VIEW_TRANSPARENT))
+        if not clear:
+            if self.players[player_num].score > 1:
+                rendered_text = self.player_font.render("Wins: {0:d}".format(self.players[player_num].score), True,
+                                                        (255, 255, 255)).convert_alpha()
+            else:
+                rendered_text = self.player_font.render("Win: {0:d}".format(self.players[player_num].score), True,
+                                                        (255, 255, 255)).convert_alpha()
+            self.center_text_on_surface(self.player_stats[player_num][2], rendered_text,
+                                        (255, 255, 255, 255 * VIEW_TRANSPARENT))
+        if update_now:
+            self.update_table.emit()
+
+    def update_player_bid(self, player_num, bid, update_now=True):
+        """
+        Update the display of the player's last bid.
+        :param player_num:
+        :param update_now:
+        :param clear:
+        :return:
+        """
+        self.player_stats[player_num][2].fill((255, 255, 255, 255 * VIEW_TRANSPARENT))
+        if not bid:
+            rendered_text = self.player_font.render("Pass".format(self.players[player_num].score), True,
+                                                    (255, 255, 255)).convert_alpha()
+        else:
+            bid_text = str(bid//10) + ' ' + cards.get_suit_string(bid % 10)
+            rendered_text = self.player_font.render(bid_text.format(self.players[player_num].score), True,
+                                                    (255, 255, 255)).convert_alpha()
+        self.center_text_on_surface(self.player_stats[player_num][2], rendered_text,
+                                    (255, 255, 255, 255 * VIEW_TRANSPARENT))
+        if update_now:
+            self.update_table.emit()
+
+    def update_all_players(self, role=False, wins=True, clear_wins=False):
+        for i in range(NUM_OF_PLAYERS):
+            if wins:
+                self.update_player_wins(i, update_now=False, clear=clear_wins)
+            if role:
+                self.update_players_role(i, update_now=False)
+        self.update_table.emit()
+
+    def display_current_player(self, current=-1):
+        if current >= 0:
+            print("Player {0:d}\n".format(current))
+        for i in range(NUM_OF_PLAYERS):
+            rendered_text = self.player_font.render("Player {0:d}".format(i), True,
+                                                    (255, 0, 255)).convert_alpha()
+            if i == current:
+                self.center_text_on_surface(self.player_stats[i][0], rendered_text,
+                                            (0, 64, 0, 255))
+            else:
+                self.center_text_on_surface(self.player_stats[i][0], rendered_text,
+                                            (255, 255, 255, 255 * VIEW_TRANSPARENT))
+
+        self.update_table.emit()
+
+    def update_team_scores(self):
+        if self.table_status['partner reveal']:
+            msg = "Declarer: {0:d}/{2:d}, Attacker: {1:d}/{3:d}\n".format(self.table_status['defender']['wins'],
+                                                                          self.table_status['attacker']['wins'],
+                                                                          self.table_status['defender']['target'],
+                                                                          self.table_status['attacker']['target'])
+            self.write_message(msg, line=2)
+        else:
+            msg = "Declarer: {0:d}?/{1:d}, Attacker: ?/{2:d}\n".format(self.table_status['defender']['wins'],
+                                                                       self.table_status['defender']['target'],
+                                                                       self.table_status['attacker']['target'])
+            self.write_message(msg, line=2)
+
 
     def reveal_all_roles(self, partner):
         """
