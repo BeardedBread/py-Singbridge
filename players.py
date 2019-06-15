@@ -73,13 +73,14 @@ class Player(cards.Deck):
         The procedure to make a bid
         :return: A valid bid number
         """
+        msg = ''
         while True:
             bid = input("Please input a bid in the format 'number' + 'suit' \n"
                         "To pass, enter nothing. \n"
                         "e.g 4d is 4 Diamond, 6n is 6 No Trump \n")
 
             if not bid:
-                return 0
+                return 0, msg
 
             bid = cards.convert_bid_string(bid)
             if bid < 0:
@@ -87,7 +88,7 @@ class Player(cards.Deck):
                 continue
 
             if self._table_status["bid"] < bid:
-                return bid
+                return bid, msg
             else:
                 if bid > 75:
                     print("You cannot bid beyond 7 No Trump")
@@ -100,6 +101,7 @@ class Player(cards.Deck):
         :return: A valid card value
         """
         current_card_values = self.get_deck_values()
+        msg = ''
         while True:
             partner = input("Please call your partner card. Enter card number + suit number \n"
                             "e.g. qs is Queen Spade, 8c is 8 Clubs, ah is Ace Hearts\n")
@@ -108,7 +110,7 @@ class Player(cards.Deck):
             if partner in current_card_values:
                 print("Please call a card outside of your hand")
             elif cards.card_check(partner):
-                return partner
+                return partner, msg
             else:
                 print("Invalid card call")
 
@@ -117,19 +119,20 @@ class Player(cards.Deck):
         The procedure to make a play in a round
         :return: A valid Card
         """
+        msg = ''
         while True:
             play = input("Please play a card.Enter card number + suit number \n"
                          "e.g. qs is Queen Spade, 8c is 8 Clubs, ah is Ace Hearts\n")
-            if play == "v":
-                pprint.pprint(self._table_status)
-            else:
-                play = cards.convert_input_string(play)
-                if play > 0:
-                    valid = self.check_for_valid_plays(play, substate == 0)
+            #if play == "v":
+            #    pprint.pprint(self._table_status)
+            #else:
+            play = cards.convert_input_string(play)
+            if play > 0:
+                valid = self.check_for_valid_plays(play, substate == 0)
 
-                    if valid:
-                        [_, pos] = self.check_card_in(play)
-                        return self.remove_card(pos)
+                if valid:
+                    [_, pos] = self.check_card_in(play)
+                    return self.remove_card(pos), msg
 
                 print("Invalid play")
 
@@ -198,25 +201,21 @@ class MainPlayer(Player):
             for event in game_events:
                 if event.type == CALL_EVENT:
                     bid = event.call
-                    print(bid)
 
                     if not bid:
-                        return 0
+                        return 0, ''
 
                     bid = cards.convert_bid_string(bid)
                     if bid < 0:
-                        print("Error in processing bid")
-                        return -1
+                        return -1, "Invalid bid"
 
                     if self._table_status["bid"] >= bid:
                         if bid > 75:
-                            print("You cannot bid beyond 7 No Trump")
+                            return -1, "You cannot bid beyond 7 No Trump"
                         else:
-                            print("You might need to bid higher")
-                        return -1
-                    return bid
-            return -1
-        return -1
+                            return -1, "You might need to bid higher"
+                    return bid, ''
+        return -1, ''
 
     def call_partner(self, game_events=None):
         if game_events:
@@ -226,22 +225,19 @@ class MainPlayer(Player):
                     partner = event.call
                     partner = cards.convert_input_string(partner)
                     if partner in current_card_values:
-                        print("Please call a card outside of your hand")
-                        return False
+                        return False, "Please call a card outside of your hand"
                     elif cards.card_check(partner):
-                        return partner
+                        return partner, ""
                     else:
-                        print("Invalid card call")
-                        return False
-            return False
-        return False
+                        return False, "Invalid card call"
+        return False, ''
 
     def make_a_play(self, substate, game_events=None):
         card = None
+        msg = ""
         if game_events:
             for event in game_events:
                 if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-                    print('mouse click')
                     mouse_pos = pygame.mouse.get_pos()
                     if self.rect.collidepoint(mouse_pos):
                         reselect = self.get_selected_card(mouse_pos)
@@ -250,13 +246,13 @@ class MainPlayer(Player):
 
                         if self.double_clicking:
                             pygame.time.set_timer(DOUBLE_CLICK_EVENT, 0)
-                            print('Double clicked')
                             if reselect:
                                 card_value = self.cards[self.selected_card].value
                                 if self.check_for_valid_plays(card_value, substate == 0):
                                     card = self.remove_selected_card()
                                 else:
                                     card = 1
+                                    msg = "Invalid card play"
                             self.deselect_card()
                             self.double_clicking = False
                         else:
@@ -269,9 +265,8 @@ class MainPlayer(Player):
                 if event.type == DOUBLE_CLICK_EVENT:
                     pygame.time.set_timer(DOUBLE_CLICK_EVENT, 0)
                     self.double_clicking = False
-                    print('double click disabled')
 
-        return card
+        return card, msg
 
     def request_reshuffle(self, game_events=None):
         # Players can choose NOT to reshuffle

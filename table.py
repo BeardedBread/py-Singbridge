@@ -514,15 +514,16 @@ class Table:
                 else:
                     player_bid = self.players[self.current_player].make_decision(self.game_state, 0)
             else:
-                player_bid = self.players[self.current_player].make_decision(self.game_state, 0, game_events)
-
+                player_bid, msg = self.players[self.current_player].make_decision(self.game_state, 0, game_events)
+                if msg:
+                    self.write_message(msg, delay_time=0, update_now=True)
                 if player_bid < 0:
                     return False
                 self.require_player_input = False
+                self.write_message("", delay_time=0, update_now=True)
                 if not self.terminal_play:
                     self.calling_panel.visible = False
                     self.update_table.emit()
-
             if not player_bid:
                 if not self.first_player:  # Starting bidder pass do not count at the start
                     self.passes += 1
@@ -571,10 +572,13 @@ class Table:
                     # Ask for the partner card
                     self.table_status["partner"] = self.players[self.current_player].make_decision(self.game_state, 1)
             else:
-                partner = self.players[self.current_player].make_decision(self.game_state, 1, game_events)
+                partner, msg = self.players[self.current_player].make_decision(self.game_state, 1, game_events)
+                if msg:
+                    self.write_message(msg, delay_time=0, update_now=True)
 
                 if not partner:
                     return False
+
                 self.table_status["partner"] = partner
                 self.require_player_input = False
                 if not self.terminal_play:
@@ -623,8 +627,9 @@ class Table:
                 else:
                     card = self.players[self.current_player].make_decision(self.game_state, 0)
             else:
-                card = self.players[self.current_player].make_decision(self.game_state, 0, game_events)
-
+                card, msg = self.players[self.current_player].make_decision(self.game_state, 0, game_events)
+                if msg:
+                    self.write_message(msg, delay_time=0, update_now=True)
                 if not type(card) is cards.Card:
                     if card:
                         self.update_table.emit()
@@ -643,7 +648,9 @@ class Table:
                 else:
                     card = self.players[self.current_player].make_decision(self.game_state, 1)
             else:
-                card = self.players[self.current_player].make_decision(self.game_state, 1, game_events)
+                card, msg = self.players[self.current_player].make_decision(self.game_state, 1, game_events)
+                if msg:
+                    self.write_message(msg, delay_time=0, update_now=False)
                 if not type(card) is cards.Card:
                     if card:
                         self.update_table.emit()
