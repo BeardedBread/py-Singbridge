@@ -30,8 +30,6 @@ An example command:
 This command runs the game with all bots and a seed from `./seeds/low_point_hand.rng`
 
 # Controls
-I hope that you know how to play the Singaporean version of Bridge.
-
 The `p` key has to be pressed to begin the game.
 During the game, a panel will pop up for you to input the bid and call you partner, in which the list is scrollable.
 To play a card, double click on a card in your hand.
