@@ -1,12 +1,12 @@
 # SingBridge
-A python implementation of the Singaporean version of the Bridge Card game.
+A python implementation of the Floating Bridge Card game using PyGame.
 
 # Requirements
 Python 3.6, pygame, signalslot
 
 # Installation
 1. Clone this repository
-2. Make a virtual environment (optinal but recommended). Remember to activate it.
+2. Make a virtual environment (optional but recommended). Remember to activate it.
 3. Install the required packages from requirements.txt:
 `pip install -r requirements.txt`
 4. Run main.py:
@@ -33,7 +33,7 @@ This command runs the game with all bots and a seed from `./seeds/low_point_hand
 I hope that you know how to play the Singaporean version of Bridge.
 
 The `p` key has to be pressed to begin the game.
-During the game, a panel will pop up for you to input the bid and call you partner.
+During the game, a panel will pop up for you to input the bid and call you partner, in which the list is scrollable.
 To play a card, double click on a card in your hand.
 
 If you are using the legacy terminal inputting option, 
