@@ -2,7 +2,6 @@ import pygame
 import UI
 import cards
 import players
-import view
 import random
 import copy
 import time
@@ -10,7 +9,7 @@ from signalslot import Signal
 from ai_comp import ai
 from game_consts import GameState, PlayerRole, STARTING_HAND, NUM_OF_PLAYERS, CALL_EVENT
 
-VIEW_TRANSPARENT = False  # Make the text box not transparent
+VIEW_TRANSPARENT = False  # Make the text box not transparent, DEBUG only
 
 
 class Table:
@@ -85,7 +84,7 @@ class Table:
         # Prepare the card with dimensions
         w_deck = min(self.height, self.width) * 0.18
         l_deck = min(self.width, self.height) * 0.7
-        # This is not a deck as it will never be draw
+        # This is not a deck as it will never be drawn
         self.discard_deck = cards.prepare_playing_cards(int(w_deck*0.6), int(w_deck*0.6 *97/71))
         game_margins = 5
 
@@ -228,6 +227,13 @@ class Table:
         return x+self.x, y+self.y
 
     def center_text_on_surface(self, surf, rendered_text, clear_colour):
+        """
+        Blit the text centered in the surface rect box
+        :param surf:
+        :param rendered_text:
+        :param clear_colour:
+        :return:
+        """
         line_center = surf.get_rect().center
         text_rect = rendered_text.get_rect(center=line_center)
         surf.fill(clear_colour)
@@ -252,6 +258,12 @@ class Table:
                 time.sleep(delay_time)
 
     def update_players_role(self, player_num, update_now=True):
+        """
+        Update the display of the player roles. Blank if UNKNOWN
+        :param player_num:
+        :param update_now:
+        :return:
+        """
         self.player_stats[player_num][1].fill((255, 255, 255, 255*VIEW_TRANSPARENT))
         role_text = ''
         colour = (128, 64, 192)
@@ -269,6 +281,13 @@ class Table:
             self.update_table.emit()
 
     def update_player_wins(self, player_num, update_now=True, clear=False):
+        """
+        Update the display of player's number of wins.
+        :param player_num:
+        :param update_now:
+        :param clear:
+        :return:
+        """
         self.player_stats[player_num][2].fill((255, 255, 255, 255*VIEW_TRANSPARENT))
         if not clear:
             if self.players[player_num].score > 1:
@@ -283,6 +302,13 @@ class Table:
             self.update_table.emit()
 
     def update_player_bid(self, player_num, bid, update_now=True):
+        """
+        Update the display of the player's last bid.
+        :param player_num:
+        :param update_now:
+        :param clear:
+        :return:
+        """
         self.player_stats[player_num][2].fill((255, 255, 255, 255 * VIEW_TRANSPARENT))
         if not bid:
             rendered_text = self.player_font.render("Pass".format(self.players[player_num].score), True,
@@ -473,7 +499,7 @@ class Table:
 
     def start_bidding(self, game_events):
         """
-        The bidding procedure.
+        The bidding procedure. Flag up if player input required
         :return: Whether bidding is completed
         """
         # Highest bid: 7 NoTrump. No further check required
@@ -484,7 +510,7 @@ class Table:
                     if not self.terminal_play:
                         self.calling_panel.visible = True
                         self.update_table.emit()
-                    return
+                    return False
                 else:
                     player_bid = self.players[self.current_player].make_decision(self.game_state, 0)
             else:
@@ -684,6 +710,11 @@ class Table:
         time.sleep(0.5)
 
     def reveal_all_roles(self, partner):
+        """
+        Update all roles once the partner card is shown
+        :param partner:
+        :return:
+        """
         self.players[partner].role = PlayerRole.PARTNER
         self.table_status['defender']['wins'] += self.players[partner].score
         for i in range(NUM_OF_PLAYERS):
@@ -692,6 +723,10 @@ class Table:
                 self.table_status['attacker']['wins'] += self.players[i].score
 
     def reset_game(self):
+        """
+        Reset all variables for the next game
+        :return:
+        """
         for player in self.players:
             while not player.is_empty():
                 self.discard_deck.append(player.remove_card())
@@ -712,41 +747,3 @@ class Table:
         self.write_message("", line=2)
         self.display_current_player()
         self.update_table.emit()
-
-
-class TestView(view.PygView):
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.table = Table(0, 0, self.width, self.height, (0, 0, 255))
-        self.table.update_table.connect(self.draw_table)
-        self.draw_table()
-
-    def draw_table(self, **kwargs):
-        self.screen.blit(self.background, (0, 0))
-        self.screen.blit(self.table.background, self.table.get_pos())
-        for player in self.table.players:
-            self.screen.blit(player.deck_surface, player.get_pos())
-        for playerzone in self.table.players_playzone:
-            self.screen.blit(playerzone.deck_surface, playerzone.get_pos())
-        pygame.display.flip()
-
-    def run(self):
-        running = True
-        while running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        running = False
-                    if event.key == pygame.K_p:
-                        print('add cards')
-                        pass
-
-        pygame.quit()
-
-
-if __name__ == '__main__':
-    test_view = TestView(900, 600, clear_colour=(0, 0, 0))
-    test_view.run()
