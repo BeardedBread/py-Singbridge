@@ -50,7 +50,7 @@ class Table:
 
     """
 
-    def __init__(self, x, y, width, height, clear_colour, autoplay=False, view_all_cards=False):
+    def __init__(self, x, y, width, height, clear_colour, autoplay=False, view_all_cards=False, terminal=False):
         # TODO: Reduce the amount of update_table call
         self.update_table = Signal()
         self.x = x
@@ -146,7 +146,10 @@ class Table:
                 reveal_mode = cards.DeckReveal.SHOW_ALL
 
             if i == 0:
-                self.players.append(players.MainPlayer(playerx[i], playery[i],
+                player_class = players.MainPlayer
+                if terminal:
+                    player_class = players.Player
+                self.players.append(player_class(playerx[i], playery[i],
                                                    l_deck, w_deck,
                                                    spacing, vert_orientation=vert,
                                                    deck_reveal=reveal_mode))
@@ -193,6 +196,7 @@ class Table:
         self.ongoing = False
         self.require_player_input = False
 
+        self.terminal_play = terminal
         self.calling_panel = UI.CallPanel(playdeckx[0]+w_deck+5,playdecky[0]+w_deck-100,
                                           220, 100)
         self.calling_panel.parent = self
@@ -212,7 +216,6 @@ class Table:
         self.no_button.visible = False
 
         self.UI_elements = [self.calling_panel, self.yes_button, self.no_button]
-
 
     def emit_call(self, output, **kwargs):
         pygame.event.post(pygame.event.Event(CALL_EVENT, call=output))
@@ -462,10 +465,11 @@ class Table:
                                                  1 * (not self.first_player)) % NUM_OF_PLAYERS)
         self.write_message(msg, line=2, delay_time=1)
 
-        self.calling_panel.list1.replace_list([str(i+1) for i in range(7)])
-        self.calling_panel.list2.replace_list(['Clubs', 'Diamonds', 'Hearts', 'Spades', 'No Trump'])
-        self.calling_panel.cancel_button.visible = True
-        self.calling_panel.redraw()
+        if not self.terminal_play:
+            self.calling_panel.list1.replace_list([str(i+1) for i in range(7)])
+            self.calling_panel.list2.replace_list(['Clubs', 'Diamonds', 'Hearts', 'Spades', 'No Trump'])
+            self.calling_panel.cancel_button.visible = True
+            self.calling_panel.redraw()
 
     def start_bidding(self, game_events):
         """
@@ -477,8 +481,9 @@ class Table:
             if not self.require_player_input:
                 if not self.players[self.current_player].AI:
                     self.require_player_input = True
-                    self.calling_panel.visible = True
-                    self.update_table.emit()
+                    if not self.terminal_play:
+                        self.calling_panel.visible = True
+                        self.update_table.emit()
                     return
                 else:
                     player_bid = self.players[self.current_player].make_decision(self.game_state, 0)
@@ -488,8 +493,9 @@ class Table:
                 if player_bid < 0:
                     return False
                 self.require_player_input = False
-                self.calling_panel.visible = False
-                self.update_table.emit()
+                if not self.terminal_play:
+                    self.calling_panel.visible = False
+                    self.update_table.emit()
 
             if not player_bid:
                 if not self.first_player:  # Starting bidder pass do not count at the start
@@ -517,10 +523,11 @@ class Table:
 
             time.sleep(0.5)
             if self.passes == NUM_OF_PLAYERS - 1 or self.table_status["bid"] == 75:
-                self.calling_panel.list1.replace_list(['2','3','4','5','6','7','8','9','10','J','Q','K','A'])
-                self.calling_panel.list2.replace_list(['Clubs', 'Diamonds', 'Hearts', 'Spades'])
-                self.calling_panel.cancel_button.visible = False
-                self.calling_panel.redraw()
+                if not self.terminal_play:
+                    self.calling_panel.list1.replace_list(['2','3','4','5','6','7','8','9','10','J','Q','K','A'])
+                    self.calling_panel.list2.replace_list(['Clubs', 'Diamonds', 'Hearts', 'Spades'])
+                    self.calling_panel.cancel_button.visible = False
+                    self.calling_panel.redraw()
             return False
         else:
             if not self.require_player_input:
@@ -530,22 +537,23 @@ class Table:
                 self.display_current_player(self.current_player)
                 if not self.players[self.current_player].AI:
                     self.require_player_input = True
-                    self.calling_panel.visible = True
-                    self.update_table.emit()
+                    if not self.terminal_play:
+                        self.calling_panel.visible = True
+                        self.update_table.emit()
                     return False
                 else:
                     # Ask for the partner card
                     self.table_status["partner"] = self.players[self.current_player].make_decision(self.game_state, 1)
             else:
-                partner = self.players[self.current_player].make_decision(self.game_state, 1,
-                                                                                               game_events)
+                partner = self.players[self.current_player].make_decision(self.game_state, 1, game_events)
 
                 if not partner:
                     return False
                 self.table_status["partner"] = partner
                 self.require_player_input = False
-                self.calling_panel.visible = False
-                self.update_table.emit()
+                if not self.terminal_play:
+                    self.calling_panel.visible = False
+                    self.update_table.emit()
 
             # Setup the table status before the play starts
             self.table_status['partner reveal'] = False
