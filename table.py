@@ -425,7 +425,7 @@ class Table:
         elif self.game_state == GameState.PLAYING:
             self.play_a_round(game_events)
             if self.current_round == 13:
-                self.write_message("Game Set! Press P to play again!")
+                self.declare_winner()
                 self.ongoing = False
                 self.game_state = GameState.ENDING
         else:
@@ -668,8 +668,11 @@ class Table:
             trumps = [suit == self.table_status['trump suit'] for suit in card_suits]
 
             # Determine which players to check for winner, and determine winner
-            valid_nums = [card_nums[i] * ((follow_suits[i] and not self.table_status['trump broken']) or trumps[i])
-                          for i in range(NUM_OF_PLAYERS)]
+            if any(trumps):
+                valid_nums = [card_nums[i] * trumps[i] for i in range(NUM_OF_PLAYERS)]
+            else:
+                valid_nums = [card_nums[i] * follow_suits[i] for i in range(NUM_OF_PLAYERS)]
+
             winning_player = valid_nums.index(max(valid_nums))
             self.write_message("Player {0:d} wins!\n".format(winning_player), delay_time=1)
             self.players[winning_player].score += 1
@@ -702,7 +705,7 @@ class Table:
             trump_played = card.suit() == self.table_status['trump suit']
             if trump_played:
                 self.table_status['trump broken'] = True
-                self.write_message("Trump Broken!", delay_time=1.5)
+                self.write_message("Trump Broken!", delay_time=1)
 
         if not self.table_status['partner reveal']:
             if card.value == self.table_status['partner']:
@@ -730,6 +733,12 @@ class Table:
             if self.players[i].role == PlayerRole.UNKNOWN:
                 self.players[i].role = PlayerRole.ATTACKER
                 self.table_status['attacker']['wins'] += self.players[i].score
+
+    def declare_winner(self):
+        if self.table_status['attacker']['wins'] >= self.table_status['attacker']['target']:
+            self.write_message("Attacker wins! Press P to play again!")
+        if self.table_status['defender']['wins'] >= self.table_status['defender']['target']:
+            self.write_message("Declarer wins! Press P to play again!")
 
     def reset_game(self):
         """
