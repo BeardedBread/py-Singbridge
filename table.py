@@ -159,7 +159,7 @@ class Table:
 
             self.players[i].connect_to_table(self.table_status)
             if i > 0:
-                self.players[i].add_ai(ai.RandomAI(self.table_status))
+                self.players[i].add_ai(ai.VivianAI(self.table_status))
 
             self.players_playzone.append(cards.Deck(playdeckx[i], playdecky[i],
                                          w_deck, w_deck, 0))
