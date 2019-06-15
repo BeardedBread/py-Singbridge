@@ -22,6 +22,7 @@ When running `main.py`, you can give options:
 * `-va` or `--view-all`: All player cards are revealed
 * `-s` or `--seed` followed by a file path: To run the game with a specified RNG seed
 * `-t` or `--terminal`: To play with legacy terminal inputting
+
 An example command:
 
 `python main.py -a -s ./seeds/low_point_hand.rng`
@@ -31,11 +32,13 @@ This command runs the game with all bots and a seed from `./seeds/low_point_hand
 # Controls
 I hope that you know how to play the Singaporean version of Bridge.
 
-Currently, the `p` key has to be pressed to begin the game.
-During the game, **all inputs are done through the terminal**.
-Instructions on the input format should appear in the terminal.
+The `p` key has to be pressed to begin the game.
+During the game, a panel will pop up for you to input the bid and call you partner.
+To play a card, double click on a card in your hand.
 
-I'm looking into changing the input to be mouse-based as a separate version.
+If you are using the legacy terminal inputting option, 
+**all inputs are done through the terminal**.
+Instructions on the input format should appear in the terminal.
 
 When closing the game, please be a bit patient. It should close within a second or two. 
 You may also close it via Keyboard Interrupt (i.e. `Ctrl+c`) in the terminal.
@@ -44,5 +47,5 @@ You may also close it via Keyboard Interrupt (i.e. `Ctrl+c`) in the terminal.
 Please report any bugs, specifying how the bug can be recreated. 
 The more specific it is, the better.
 
-Suggestions for improvements on the code are welcomed.
+Suggestions for improvements are welcomed.
 
