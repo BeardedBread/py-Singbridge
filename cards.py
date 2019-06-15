@@ -126,7 +126,7 @@ class Deck():
         self.sort_order = sort_order
         self.selectable = selectable
         self.selected_card = -1
-        self.prev_selected = -1
+        self.prev_selected = [-1, -1, -1]
 
         self.cards = []
         self.line_width = 5
@@ -291,11 +291,16 @@ class Deck():
             return True, card_values.index(value)
         return False, -1
 
+    def record_selected_history(self):
+        self.prev_selected = self.prev_selected[1:]
+        self.prev_selected.append(self.selected_card)
+
     def deselect_card(self):
         self.selected_card = -1
+        self.record_selected_history()
         self.update_deck_display()
 
-    def get_selected_card(self, pos):
+    def get_selected_card(self, pos, double_clicking=False):
         """
         Get the selected card based on the mouse pos, offset to give the relative position in the deck.
         The selected card position is stored in the deck
@@ -303,11 +308,10 @@ class Deck():
         :return: bool: whether the card selected is the same as before
         """
         if self.selectable:
+            double_select = False
             relative_pos_x = pos[0] - self.x
             relative_pos_y = pos[1] - self.y
             mouse_pos = (relative_pos_x, relative_pos_y)
-            if self.selected_card >= 0:
-                self.prev_selected = self.selected_card
             self.selected_card = -1
             if not self.draw_from_last:
                 for i, card in enumerate(reversed(self.cards)):
@@ -320,8 +324,17 @@ class Deck():
                         self.selected_card = i
                         break
 
+            if self.prev_selected[-1] == self.selected_card:
+                if not double_clicking:
+                    self.selected_card = -1
+
+            self.record_selected_history()
             self.update_deck_display()
-            return (self.prev_selected == self.selected_card)and self.selected_card >= 0
+
+            selected_history = [sel for sel in self.prev_selected if sel >= 0]
+
+            return (len(selected_history) == 2 and self.prev_selected.count(self.selected_card) == 2
+                    and self.selected_card >= 0) and double_clicking
         return False
 
 
@@ -492,8 +505,8 @@ class TestScreen(view.PygView):
                     mouse_pos = pygame.mouse.get_pos()
                     for deck in self.test_decks:
                         if deck.rect.collidepoint(mouse_pos):
-                            reselect = deck.get_selected_card(mouse_pos)
-
+                            reselect = deck.get_selected_card(mouse_pos, self.double_clicking)
+                            print('a', reselect)
                             if self.double_clicking:
                                 pygame.time.set_timer(self.double_click_event, 0)
                                 print('Double clicked')
@@ -503,8 +516,6 @@ class TestScreen(view.PygView):
                             else:
                                 self.double_clicking = True
                                 pygame.time.set_timer(self.double_click_event, 200)
-                                if reselect:
-                                    deck.deselect_card()
 
                 if event.type == self.double_click_event:
                     pygame.time.set_timer(self.double_click_event, 0)

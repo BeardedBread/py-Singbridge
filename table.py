@@ -370,13 +370,12 @@ class Table:
         self.update_player_bid(self.current_player, 11, update_now=False)
         msg = 'Bid Leader: Player {0:d}'.format((self.current_player - self.passes -
                                                  1 * (not self.first_player)) % NUM_OF_PLAYERS)
-        self.write_message(msg, line=2, delay_time=1)
+        self.write_message(msg, line=2, delay_time=0.5)
 
         if not self.terminal_play:
-            self.calling_panel.list1.replace_list([str(i+1) for i in range(7)])
-            self.calling_panel.list2.replace_list(['Clubs', 'Diamonds', 'Hearts', 'Spades', 'No Trump'])
             self.calling_panel.cancel_button.visible = True
-            self.calling_panel.redraw()
+            self.calling_panel.change_lists_elements([str(i+1) for i in range(7)],
+                                                     ['Clubs', 'Diamonds', 'Hearts', 'Spades', 'No Trump'])
 
     def start_bidding(self, game_events):
         """
@@ -396,12 +395,12 @@ class Table:
                     player_bid = self.players[self.current_player].make_decision(self.game_state, 0)
             else:
                 player_bid, msg = self.players[self.current_player].make_decision(self.game_state, 0, game_events)
-                if msg:
-                    self.write_message(msg, delay_time=0, update_now=True)
+                #if msg:
+                    #self.write_message(msg, delay_time=1, update_now=True)
                 if player_bid < 0:
                     return False
                 self.require_player_input = False
-                self.write_message("", delay_time=0, update_now=True)
+                #self.write_message("", delay_time=0, update_now=False)
                 if not self.terminal_play:
                     self.calling_panel.visible = False
                     self.update_table.emit()
@@ -432,10 +431,9 @@ class Table:
             time.sleep(0.5)
             if self.passes == NUM_OF_PLAYERS - 1 or self.table_status["bid"] == 75:
                 if not self.terminal_play:
-                    self.calling_panel.list1.replace_list(['2','3','4','5','6','7','8','9','10','J','Q','K','A'])
-                    self.calling_panel.list2.replace_list(['Clubs', 'Diamonds', 'Hearts', 'Spades'])
                     self.calling_panel.cancel_button.visible = False
-                    self.calling_panel.redraw()
+                    self.calling_panel.change_lists_elements(['2','3','4','5','6','7','8','9','10','J','Q','K','A'],
+                                                             ['Clubs', 'Diamonds', 'Hearts', 'Spades'])
             return False
         else:
             if not self.require_player_input:
@@ -498,12 +496,12 @@ class Table:
         :return: None
         """
         if not any(self.table_status["played cards"]):
-            if self.table_status['trump broken']:
-                self.write_message("Trump has been broken!", delay_time=0)
-            else:
-                self.write_message("Trump is not broken", delay_time=0)
             # Leading player starts with the leading card, which determines the leading suit
             if not self.require_player_input:
+                if self.table_status['trump broken']:
+                    self.write_message("Trump has been broken!", delay_time=0)
+                else:
+                    self.write_message("Trump is not broken", delay_time=0)
                 self.current_player = self.table_status['leading player']
                 self.display_current_player(self.current_player)
                 if not self.players[self.current_player].AI:
@@ -513,8 +511,8 @@ class Table:
                     card = self.players[self.current_player].make_decision(self.game_state, 0)
             else:
                 card, msg = self.players[self.current_player].make_decision(self.game_state, 0, game_events)
-                if msg:
-                    self.write_message(msg, delay_time=0, update_now=True)
+                #if msg:
+                #    self.write_message(msg, delay_time=0, update_now=True)
                 if not type(card) is cards.Card:
                     if card:
                         self.update_table.emit()
@@ -534,8 +532,8 @@ class Table:
                     card = self.players[self.current_player].make_decision(self.game_state, 1)
             else:
                 card, msg = self.players[self.current_player].make_decision(self.game_state, 1, game_events)
-                if msg:
-                    self.write_message(msg, delay_time=0, update_now=False)
+                #if msg:
+                #    self.write_message(msg, delay_time=0, update_now=False)
                 if not type(card) is cards.Card:
                     if card:
                         self.update_table.emit()
@@ -586,11 +584,6 @@ class Table:
 
             return
 
-        if self.table_status['trump broken']:
-            self.write_message("Trump has been broken!", delay_time=0)
-        else:
-            self.write_message("Trump is not broken", delay_time=0)
-
         # Break trump if the trump suit is played
         if not self.table_status['trump broken']:
             self.table_status['trump broken'] = card.suit() == self.table_status['trump suit']
@@ -606,6 +599,7 @@ class Table:
 
         self.current_player += 1
         self.current_player %= NUM_OF_PLAYERS
+        self.update_table.emit()
         time.sleep(0.5)
 
     def write_message(self, text, delay_time=0.5, line=0, update_now=True):

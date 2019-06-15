@@ -234,14 +234,14 @@ class MainPlayer(Player):
 
     def make_a_play(self, substate, game_events=None):
         card = None
-        msg = ""
+        msg = None
         if game_events:
             for event in game_events:
                 if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                     mouse_pos = pygame.mouse.get_pos()
                     if self.rect.collidepoint(mouse_pos):
-                        reselect = self.get_selected_card(mouse_pos)
-                        if self.selected_card >= 0:
+                        reselect = self.get_selected_card(mouse_pos, double_clicking=self.double_clicking)
+                        if not reselect:
                             card = 1
 
                         if self.double_clicking:
@@ -253,14 +253,14 @@ class MainPlayer(Player):
                                 else:
                                     card = 1
                                     msg = "Invalid card play"
-                            self.deselect_card()
                             self.double_clicking = False
                         else:
                             self.double_clicking = True
                             pygame.time.set_timer(DOUBLE_CLICK_EVENT, DOUBLE_CLICK_TIMING)
-                            if reselect:
-                                self.deselect_card()
-                                card = 1
+                            #if reselect:
+                            #    self.deselect_card()
+                            #    card = 1
+                    return card, msg
 
                 if event.type == DOUBLE_CLICK_EVENT:
                     pygame.time.set_timer(DOUBLE_CLICK_EVENT, 0)

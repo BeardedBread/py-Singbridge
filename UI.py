@@ -262,6 +262,7 @@ class ScrollList(GenericUI):
             self.redraw()
 
     def replace_list(self, texts):
+        self.reset_scroll()
         self.texts = texts
         self.text_rects = []
         current_y = self.outline_thickness
@@ -363,6 +364,13 @@ class CallPanel(GenericUI):
     def cancelling(self, **kwargs):
         self.confirm_output.emit(output='')
 
+    def change_lists_elements(self, left_list=None, right_list=None):
+        if left_list is not None:
+            self.list1.replace_list(left_list)
+        if right_list is not None:
+            self.list2.replace_list(right_list)
+        self.redraw()
+
 
 class TestScreen(view.PygView):
 
@@ -408,7 +416,7 @@ class TestScreen(view.PygView):
                         running = False
 
                     if event.key == pygame.K_o:
-                        self.panel.list1.replace_list([str(i+1) for i in range(7)])
+                        self.panel.change_lists_elements([str(i+1) for i in range(45)],['a','b'])
                         draw_update = True
 
                 for element in self.elements:
