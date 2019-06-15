@@ -85,8 +85,8 @@ class Table:
         # Prepare the card with dimensions
         w_deck = min(self.height, self.width) * 0.18
         l_deck = min(self.width, self.height) * 0.7
-        # This is not a deck as it will never be drawn
-        self.discard_deck = cards.prepare_playing_cards(int(w_deck*0.7), int(w_deck*0.8))
+        # This is not a deck as it will never be draw
+        self.discard_deck = cards.prepare_playing_cards(int(w_deck*0.6), int(w_deck*0.6 *97/71))
         game_margins = 5
 
         # Players' deck positioning
@@ -194,7 +194,7 @@ class Table:
         self.require_player_input = False
 
         self.calling_panel = UI.CallPanel(playdeckx[0]+w_deck+5,playdecky[0]+w_deck-100,
-                                          250, 100)
+                                          220, 100)
         self.calling_panel.parent = self
         self.calling_panel.visible = False
         self.parent = None
@@ -502,10 +502,14 @@ class Table:
                 self.write_message(msg, line=1, update_now=False)
                 msg = 'Bid Leader: Player {0:d}'.format(self.current_player)
                 self.write_message(msg, line=2, update_now=True)
+
             if self.first_player:
                 self.first_player = False
+                if player_bid:
+                    self.update_player_bid(self.current_player, player_bid, update_now=False)
             else:
                 self.update_player_bid(self.current_player, player_bid, update_now=False)
+
             if self.table_status["bid"] < 75:
                 self.current_player += 1
                 self.current_player %= NUM_OF_PLAYERS

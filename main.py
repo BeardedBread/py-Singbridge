@@ -105,7 +105,7 @@ if __name__ == '__main__':
     #    rng_state = pickle.load(f)
     #random.setstate(rng_state)
 
-    main_view = GameScreen(900, 600, clear_colour=(255, 0, 0),
+    main_view = GameScreen(800, 600, clear_colour=(255, 0, 0),
                            autoplay=AUTOPLAY, view_all_cards=VIEW_ALL_CARDS)
 
     main_view.run()
