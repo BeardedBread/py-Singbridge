@@ -395,12 +395,12 @@ class Table:
                     player_bid = self.players[self.current_player].make_decision(self.game_state, 0)
             else:
                 player_bid, msg = self.players[self.current_player].make_decision(self.game_state, 0, game_events)
-                #if msg:
-                    #self.write_message(msg, delay_time=1, update_now=True)
+                if msg:
+                    self.write_message(msg, delay_time=1, update_now=True)
                 if player_bid < 0:
                     return False
                 self.require_player_input = False
-                #self.write_message("", delay_time=0, update_now=False)
+                self.write_message("", delay_time=0, update_now=False)
                 if not self.terminal_play:
                     self.calling_panel.visible = False
                     self.update_table.emit()
@@ -511,8 +511,8 @@ class Table:
                     card = self.players[self.current_player].make_decision(self.game_state, 0)
             else:
                 card, msg = self.players[self.current_player].make_decision(self.game_state, 0, game_events)
-                #if msg:
-                #    self.write_message(msg, delay_time=0, update_now=True)
+                if msg:
+                    self.write_message(msg, delay_time=0, update_now=True)
                 if not type(card) is cards.Card:
                     if card:
                         self.update_table.emit()
@@ -532,8 +532,8 @@ class Table:
                     card = self.players[self.current_player].make_decision(self.game_state, 1)
             else:
                 card, msg = self.players[self.current_player].make_decision(self.game_state, 1, game_events)
-                #if msg:
-                #    self.write_message(msg, delay_time=0, update_now=False)
+                if msg:
+                    self.write_message(msg, delay_time=0, update_now=False)
                 if not type(card) is cards.Card:
                     if card:
                         self.update_table.emit()
