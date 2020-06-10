@@ -49,7 +49,7 @@ class GameScreen(view.PygView):
                         if not self.table.ongoing:
                             self.table.ongoing = True
                 self.table.process_UI(event)
-            if self.table.ongoing:
-                self.table.continue_game(all_events)
-
+            #if self.table.ongoing:
+                #self.table.continue_game(all_events)
+        self.table.client.disconnect()
         pygame.quit()
