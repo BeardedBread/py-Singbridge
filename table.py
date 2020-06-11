@@ -11,9 +11,11 @@ from game_consts import GameState, PlayerRole, STARTING_HAND, NUM_OF_PLAYERS, CA
 
 VIEW_TRANSPARENT = False  # Make the text box not transparent, DEBUG only
 
-from Mastermind import *
-ip = "localhost"
-port = 6318
+#from Mastermind import *
+import socket
+
+server = "localhost"
+port = 5555
 
 class Table:
     """
@@ -219,9 +221,16 @@ class Table:
 
         self.UI_elements = [self.calling_panel, self.yes_button, self.no_button]
 
-        self.client = MastermindClientUDP(1.0,1.0)
-        self.client.connect(ip,port)
-        self.client.send("Client: Ready!")
+        self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.client.setblocking(False)
+        self.connect()
+
+    def connect(self):
+        try:
+            self.client.connect((server, port))
+            print(self.client.recv(2048).decode())
+        except:
+            pass
 
     def emit_call(self, output, **kwargs):
         pygame.event.post(pygame.event.Event(CALL_EVENT, call=output))
@@ -262,8 +271,6 @@ class Table:
 
         if draw_update:
             self.update_table.emit()
-        reply = self.client.receive(False) #True for blocking
-        print("Client: got     \""+str(reply)+"\"")
 
     def continue_game(self, game_events):
         """

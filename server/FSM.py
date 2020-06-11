@@ -4,17 +4,27 @@
 #
 # STEP 2: Replace update_table with sending back to players
 # STEP 3: Change write_message to send string back
+import socket
+import select
+import threading
+import sys
+import players
+from ai_comp import ai
+from game_consts import GameState, PlayerRole, STARTING_HAND, NUM_OF_PLAYERS
 
-class Table:
+server = "localhost"
+port = 5555
+
+class Table():
     def __init__(self):
         # For gameplay
-        self.game_state = GameState.DEALING
+        self.game_state = GameState.ENDING
         self.reshuffling_players = []
         self.current_round = 0
         self.passes = 0
         self.current_player = 0
         self.first_player = False  # This is for bidding purposes
-        self.players_hand = []
+        self.players = []
         # Table status will be made known to the player by reference
         self.table_status = {'played cards': [0, 0, 0, 0], 'leading player': 0, 'trump suit': 1,
                              'trump broken': False, 'round history': [], 'bid': 0, 'partner': 0,
@@ -32,64 +42,99 @@ class Table:
 
         self.discard_deck = self.prepare_playing_cards()
 
-    def prepare_playing_cards():
+        self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.connected_players = []
+        try:
+            self.server.bind((server, port))
+        except socket.error as e:
+            str(e)
+
+    def listening_for_players(self):
+        self.server.listen()
+        conn, addr = self.server.accept()
+        conn.setblocking(False)
+        print(addr, "Connected")
+        self.connected_players.append(conn)
+        conn.sendall(b"ready up\n")
+
+    def exit_game(self):
+        for conn in self.connected_players:
+            conn.close()
+
+    def prepare_playing_cards(self):
         """
         Create the 52 playing cards. Should be called only once.
         """
-        return [(i+1)*100 + j+2 for i in range(4)]
+        all_cards = []
+        for i in range(4):
+            for j in range(13):
+                all_cards.append((i+1)*100 + j+2)
+        return all_cards
 
-    def continue_game(self, game_events):
+    def play_game(self):
         """
         This is where the FSM is. State transition should occur here.
         What takes place in the state should be in a function.
         :return: None
         """
-        # TODO: Adjust the timing of sleep
-        if self.game_state == GameState.DEALING:
-            self.shuffle_and_deal()
-            self.write_message("Shuffle Complete!")
-            self.reshuffling_players = []
-            for i, player in enumerate(self.players):
-                if player.get_card_points() < 4:
-                    self.write_message("Low points detected in Player {0:d}! ".format(i))
-                    self.reshuffling_players.append(i)
+        while True:
+            if self.game_state == GameState.DEALING:
+                self.shuffle_and_deal()
+                self.write_message("Shuffle Complete!")
+                self.reshuffling_players = []
+                for i, player in enumerate(self.players):
+                    if player.get_card_points() < 4:
+                        self.write_message("Low points detected in Player {0:d}! ".format(i))
+                        self.reshuffling_players.append(i)
 
-            if not self.reshuffling_players:
-                self.write_message('No Reshuffle needed!')
-                self.game_state = GameState.BIDDING
-                self.write_message("Start to Bid")
-                self.prepare_bidding()
+                if not self.reshuffling_players:
+                    self.write_message('No Reshuffle needed!')
+                    self.game_state = GameState.BIDDING
+                    self.write_message("Start to Bid")
+                    self.prepare_bidding()
+                else:
+                    self.current_player = self.reshuffling_players[0]
+                    self.game_state = GameState.POINT_CHECK
+
+            elif self.game_state == GameState.POINT_CHECK:
+                reshuffle = self.check_reshuffle(game_events)
+                if reshuffle:
+                    self.write_message('Reshuffle Initiated!', line=1)
+                    self.game_state = GameState.ENDING
+                else:
+                    self.write_message('No Reshuffle needed!')
+                    self.game_state = GameState.BIDDING
+                    self.write_message("Start to Bid")
+                    self.prepare_bidding()
+
+            elif self.game_state == GameState.BIDDING:
+                bid_complete = self.start_bidding(game_events)
+                if bid_complete:
+                    self.game_state = GameState.PLAYING
+                    self.update_all_players(role=True, wins=True)
+                    self.update_team_scores()
+
+            elif self.game_state == GameState.PLAYING:
+                self.play_a_round(game_events)
+                if self.current_round == 13:
+                    self.declare_winner()
+                    self.ongoing = False
+                    self.game_state = GameState.ENDING
             else:
-                self.current_player = self.reshuffling_players[0]
-                self.game_state = GameState.POINT_CHECK
-
-        elif self.game_state == GameState.POINT_CHECK:
-            reshuffle = self.check_reshuffle(game_events)
-            if reshuffle:
-                self.write_message('Reshuffle Initiated!', line=1)
-                self.game_state = GameState.ENDING
-            else:
-                self.write_message('No Reshuffle needed!')
-                self.game_state = GameState.BIDDING
-                self.write_message("Start to Bid")
-                self.prepare_bidding()
-
-        elif self.game_state == GameState.BIDDING:
-            bid_complete = self.start_bidding(game_events)
-            if bid_complete:
-                self.game_state = GameState.PLAYING
-                self.update_all_players(role=True, wins=True)
-                self.update_team_scores()
-
-        elif self.game_state == GameState.PLAYING:
-            self.play_a_round(game_events)
-            if self.current_round == 13:
-                self.declare_winner()
-                self.ongoing = False
-                self.game_state = GameState.ENDING
-        else:
-            self.reset_game()
-            self.game_state = GameState.DEALING
+                ready = [False] * len(self.connected_players)
+                while not all(ready):
+                    replies, _, _ = select.select(self.connected_players,[],[])
+                    for conn in replies:
+                        data = conn.recv(1024).decode()
+                        print(data)
+                        if data == "ready":
+                            num = self.connected_players.index(conn)
+                            ready[num] = True
+                print("All players ready!")
+                self.reset_game()
+                print(self.table_status, self.current_round)
+                self.game_state = GameState.DEALING
+                return
 
     def shuffle_and_deal(self):
         """
@@ -457,15 +502,15 @@ class Table:
             if player.AI:
                 player.AI.reset_memory()
 
-        for i in range(NUM_OF_PLAYERS):
-            self.update_players_role(i)
-            self.update_player_wins(i, clear=True)
+        #for i in range(NUM_OF_PLAYERS):
+            #self.update_players_role(i)
+            #self.update_player_wins(i, clear=True)
         self.table_status['defender']['wins'] = 0
         self.table_status['attacker']['wins'] = 0
         self.table_status["played cards"] = [0]*NUM_OF_PLAYERS
         self.table_status['round history'] = []
         self.current_round = 0
-        self.write_message("", line=1, update_now=False)
-        self.write_message("", line=2)
-        self.display_current_player()
-        self.update_table.emit()
+        #self.write_message("", line=1, update_now=False)
+        #self.write_message("", line=2)
+        #self.display_current_player()
+        #self.update_table.emit()

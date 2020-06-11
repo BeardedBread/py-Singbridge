@@ -1,8 +1,11 @@
-import cards
+#import cards
 import pprint
-import pygame
-from game_consts import GameState, PlayerRole, STARTING_HAND, DOUBLE_CLICK_EVENT, DOUBLE_CLICK_TIMING, CALL_EVENT
+#import pygame
+from game_consts import GameState, PlayerRole, STARTING_HAND
 
+
+ip = "localhost"
+port = 5555
 
 class Player():
     """
@@ -24,6 +27,9 @@ class Player():
     
     def add_card(self, value):
         self.hand.append(value)
+    
+    def remove_card(self):
+        return self.hand.pop()
 
     def make_decision(self, game_state, sub_state, game_events=None):
         """
@@ -166,4 +172,7 @@ class Player():
     def request_reshuffle(self, game_events=None):
         # Players can choose NOT to reshuffle
         return input("Reshuffle? (y/n)").lower() == 'y'
+
+    def is_empty(self):
+        return len(self.hand) == 0
 

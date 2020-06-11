@@ -1,6 +1,7 @@
 import view
 import pygame
 import table
+import traceback
 
 
 class GameScreen(view.PygView):
@@ -37,19 +38,24 @@ class GameScreen(view.PygView):
 
     def run(self):
         self.running = True
-        while self.running:
-            all_events = pygame.event.get()
-            for event in all_events:
-                if event.type == pygame.QUIT:
-                    self.running = False
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
+        try:
+            while self.running:
+                all_events = pygame.event.get()
+                for event in all_events:
+                    if event.type == pygame.QUIT:
                         self.running = False
-                    if event.key == pygame.K_p:
-                        if not self.table.ongoing:
-                            self.table.ongoing = True
-                self.table.process_UI(event)
-            #if self.table.ongoing:
-                #self.table.continue_game(all_events)
-        self.table.client.disconnect()
+                    elif event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_ESCAPE:
+                            self.running = False
+                        if event.key == pygame.K_p:
+                            #if not self.table.ongoing:
+                            #    self.table.ongoing = True
+                            self.table.client.send(b"ready")
+                    #self.table.process_UI(event)
+                #if self.table.ongoing:
+                    #self.table.continue_game(all_events)
+        except:
+            track = traceback.format_exc()
+            print(track)
+        self.table.client.close()
         pygame.quit()
