@@ -13,6 +13,7 @@ from ai_comp import ai
 from game_consts import GameState, PlayerRole, STARTING_HAND, NUM_OF_PLAYERS
 import json
 import random
+import cards
 
 server = "localhost"
 port = 5555
@@ -34,7 +35,7 @@ class Table():
                              'attacker': {'target': 0, 'wins': 0}}
         
         for i in range(NUM_OF_PLAYERS):
-            vert = i % 2 == 1
+            #vert = i % 2 == 1
 
             self.players.append(players.Player())
 
@@ -60,8 +61,22 @@ class Table():
         response = {'msg': 'Please ready up', 'player': 0}
         self.send_json(conn, response)
 
+    def send_json_to_all(self, data):
+        print("Sending ", data, " to all")
+        sent = [False] * len(self.connected_players)
+
+        while not all(sent):
+            _, readied, _ = select.select([],self.connected_players,[])
+            for conn in readied:
+                self.send_json(conn, data)
+                num = self.connected_players.index(conn)
+                sent[num] = True
+        print("Sent to all!")
+        
+
     def send_json(self, conn, data):
-        conn.sendall(json.dumps(data).encode())
+        json_data = json.dumps(data) + '\r\n' 
+        conn.send(json_data.encode())
 
     def exit_game(self):
         for conn in self.connected_players:
@@ -87,17 +102,17 @@ class Table():
             if self.game_state == GameState.DEALING:
                 self.shuffle_and_deal()
                 print("Shuffle Complete!")
-                return
                 self.reshuffling_players = []
                 for i, player in enumerate(self.players):
                     if player.get_card_points() < 4:
-                        self.write_message("Low points detected in Player {0:d}! ".format(i))
+                        print("Low points detected in Player {0:d}! ".format(i))
                         self.reshuffling_players.append(i)
-
+                self.send_json_to_all({'shuffle': self.reshuffling_players})
                 if not self.reshuffling_players:
-                    self.write_message('No Reshuffle needed!')
+                    print('No Reshuffle needed!')
                     self.game_state = GameState.BIDDING
-                    self.write_message("Start to Bid")
+                    #self.send_json_to_all({'state': self.game_state.value})
+                    print("Start to Bid")
                     self.prepare_bidding()
                 else:
                     self.current_player = self.reshuffling_players[0]
@@ -130,7 +145,6 @@ class Table():
                     self.game_state = GameState.ENDING
             else:
                 ready = [False] * len(self.connected_players)
-                print(ready)
                 while not all(ready):
                     replies, _, _ = select.select(self.connected_players,[],[])
                     for conn in replies:
@@ -144,7 +158,7 @@ class Table():
                 print(self.table_status, self.current_round)
                 self.game_state = GameState.DEALING
                 status = {"table": self.table_status, "round":self.current_round, 'state': self.game_state.value}
-                self.send_json(conn, status)
+                self.send_json_to_all(status)
 
     def shuffle_and_deal(self):
         """
@@ -191,11 +205,11 @@ class Table():
         self.first_player = True  # Starting bidder "privilege" to raise the starting bid
         msg = "Current Bid: {0:d} {1:s}".format(self.table_status["bid"] // 10,
                                                 cards.get_suit_string(self.table_status["bid"] % 10))
-        self.write_message(msg, line=1, delay_time=0)
-        self.display_current_player(self.current_player)
+        print(msg)
+        #self.display_current_player(self.current_player)
         msg = 'Bid Leader: Player {0:d}'.format((self.current_player - self.passes -
                                                  1 * (not self.first_player)) % NUM_OF_PLAYERS)
-        self.write_message(msg, line=2, delay_time=0.5)
+        print(msg)
 
     def start_bidding(self, game_events):
         """

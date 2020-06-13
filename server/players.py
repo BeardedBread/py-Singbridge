@@ -1,4 +1,4 @@
-#import cards
+import cards
 import pprint
 #import pygame
 from game_consts import GameState, PlayerRole, STARTING_HAND
@@ -156,16 +156,19 @@ class Player():
         return True
 
     def get_card_points(self):
+        self.cards.sort()
         suit_points = 0
         card_points = []
         current_suit = 1
         card_position = 0
         for (i, card) in enumerate(self.cards):
-            if card.suit() != current_suit:
+            card_suit = cards.get_card_suit(card)
+            card_num = cards.get_card_number(card)
+            if card_suit != current_suit:
                 suit_points += (i-card_position) // 5
                 card_position = i
-                current_suit = card.suit()
-            card_points.append(max(0, card.number() - 10))
+                current_suit = card_suit
+            card_points.append(max(0, card_num - 10))
         suit_points += (STARTING_HAND-card_position) // 5
         return suit_points + sum(card_points)
 

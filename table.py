@@ -146,7 +146,7 @@ class Table:
             if vert:
                 spacing = v_spacing
 
-            reveal_mode = cards.DeckReveal.SHOW_ALL
+            reveal_mode = cards.DeckReveal.HIDE_ALL
             if i == 0 or view_all_cards:
                 reveal_mode = cards.DeckReveal.SHOW_ALL
 
@@ -225,7 +225,11 @@ class Table:
         self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         #self.client.setblocking(False)
         self.client.settimeout(5.0)
+        self.recv_buffer = ''
         self.connect()
+
+        self.dealt = False
+        self.point_checked = False
 
     def connect(self):
         try:
@@ -243,14 +247,22 @@ class Table:
     
     def wait_for_data(self):
         try:
-            data = self.client.recv(1024).decode()
+            payload = self.client.recv(1024).decode()
+            print(payload)
+            payload = payload.split('\r\n')
+            if len(payload) == 0:
+                return False
+            payload[0] = self.recv_buffer + payload[0]
+            self.recv_buffer = payload.pop()
         except socket.timeout:
             return False
 
         try:
-            data = json.loads(data)
-            if data:
-                self.process_server_response(data)
+            print(payload)
+            for data in payload:
+                data = json.loads(data)
+                if data:
+                    self.process_server_response(data)
         except json.JSONDecodeError:
             return False
         return True
@@ -271,12 +283,18 @@ class Table:
                 self.game_state = GameState(data[key])
             elif key == "player":
                 self.player_no = data[key]
+            elif key == "current":
+                self.current_player = data[key]
+                self.display_current_player(self.current_player)
+            elif key == "shuffle":
+                self.point_checked = True
+                self.reshuffling_players = data[key]
             elif key == "deals":
-                dealt_cards = data[key]
-                print(dealt_cards)          
+                dealt_cards = data[key]    
                 for i in range(NUM_OF_PLAYERS):
                     for card_value in dealt_cards[i]:
                         self.players[i].add_card(self.all_cards[card_value])
+                self.dealt = True
                 self.update_table.emit()
             else:
                 print("Unknown key from server: ", key)
@@ -330,27 +348,21 @@ class Table:
         # TODO: Adjust the timing of sleep
         if self.game_state == GameState.DEALING:
             self.write_message("Waiting for shuffle...")
-            while(self.wait_for_data()):
-                pass
-            self.write_message("Shuffle Complete!")
-            return 2
-            print("Confirming reshuffle...")
-            while(self.wait_for_data()):
-                pass
-            self.reshuffling_players = []
-            for i, player in enumerate(self.players):
-                if player.get_card_points() < 4:
-                    self.write_message("Low points detected in Player {0:d}! ".format(i))
-                    self.reshuffling_players.append(i)
+            while(not self.dealt):
+                self.wait_for_data()
+            #self.write_message("Shuffle Complete!")
+            self.write_message("Confirming reshuffle...")
+            while(not self.point_checked):
+                self.wait_for_data()
 
-            if not self.reshuffling_players:
+            if len(self.reshuffling_players) == 0:
                 self.write_message('No Reshuffle needed!')
                 self.game_state = GameState.BIDDING
                 self.write_message("Start to Bid")
-                self.prepare_bidding()
             else:
                 self.current_player = self.reshuffling_players[0]
                 self.game_state = GameState.POINT_CHECK
+            return 2
 
         elif self.game_state == GameState.POINT_CHECK:
             reshuffle = self.check_reshuffle(game_events)
