@@ -397,7 +397,7 @@ def prepare_playing_cards(display_w, display_h):
     :rtype: List of <Cards>
     """
     card_sprites = SpriteSheet(os.path.join(DATA_FOLDER, 'card_spritesheet.png'))
-    all_cards = []
+    all_cards = {}
     offset = 0
     spacing = 0
     width = 71
@@ -412,8 +412,9 @@ def prepare_playing_cards(display_w, display_h):
             else:
                 x = offset
             card_img = card_sprites.image_at((x, y, width, height))
-            all_cards.append(Card(0, 0, display_w, display_h, (i+1)*100 + j+2,
-                                  image_data=card_img, backimage_data=card_backimg))
+            card_value = (i+1)*100 + j+2
+            all_cards[card_value] = Card(0, 0, display_w, display_h, (i+1)*100 + j+2,
+                                  image_data=card_img, backimage_data=card_backimg)
 
     return all_cards
 

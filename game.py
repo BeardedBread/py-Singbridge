@@ -47,11 +47,9 @@ class GameScreen(view.PygView):
                     elif event.type == pygame.KEYDOWN:
                         if event.key == pygame.K_ESCAPE:
                             self.running = False
-                        if event.key == pygame.K_p:
-                            #if not self.table.ongoing:
-                            #    self.table.ongoing = True
-                            print(self.table.send_and_receive('ready'))
-                            self.running = False  
+                if (self.table.continue_game(all_events)  == 2):
+                    input("Input any key to continue")
+                    self.running = False
         except:
             track = traceback.format_exc()
             print(track)

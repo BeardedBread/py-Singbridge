@@ -12,7 +12,6 @@ import json
 
 VIEW_TRANSPARENT = False  # Make the text box not transparent, DEBUG only
 
-#from Mastermind import *
 import socket
 
 server = "localhost"
@@ -67,7 +66,7 @@ class Table:
         self.player_font = pygame.font.SysFont("None", 25)
 
         # For gameplay
-        self.game_state = GameState.DEALING
+        self.game_state = GameState.ENDING
         self.reshuffling_players = []
         self.current_round = 0
         self.passes = 0
@@ -80,6 +79,7 @@ class Table:
                              'trump broken': False, 'round history': [], 'bid': 0, 'partner': 0,
                              'partner reveal': False, 'defender': {'target': 0, 'wins': 0},
                              'attacker': {'target': 0, 'wins': 0}}
+        self.player_no = 0
 
         # Prepare the surfaces for displaying
         self.background = pygame.Surface((self.width, self.height))
@@ -91,7 +91,7 @@ class Table:
         w_deck = min(self.height, self.width) * 0.18
         l_deck = min(self.width, self.height) * 0.7
         # This is not a deck as it will never be drawn
-        self.discard_deck = cards.prepare_playing_cards(int(w_deck*0.6), int(w_deck*0.6 *97/71))
+        self.all_cards = cards.prepare_playing_cards(int(w_deck*0.6), int(w_deck*0.6 *97/71))
         game_margins = 5
 
         # Players' deck positioning
@@ -146,7 +146,7 @@ class Table:
             if vert:
                 spacing = v_spacing
 
-            reveal_mode = cards.DeckReveal.HIDE_ALL
+            reveal_mode = cards.DeckReveal.SHOW_ALL
             if i == 0 or view_all_cards:
                 reveal_mode = cards.DeckReveal.SHOW_ALL
 
@@ -230,7 +230,7 @@ class Table:
     def connect(self):
         try:
             self.client.connect((server, port))
-            print(self.client.recv(2048).decode())
+            print(self.wait_for_data())
         except:
             pass
 
@@ -245,13 +245,41 @@ class Table:
         try:
             data = self.client.recv(1024).decode()
         except socket.timeout:
-            return None
+            return False
 
         try:
             data = json.loads(data)
+            if data:
+                self.process_server_response(data)
         except json.JSONDecodeError:
-            return None
-        return data
+            return False
+        return True
+
+    def process_server_response(self, data):
+        for key in data:
+            if key == "msg":
+                print(data[key])
+            elif key == "round":
+                self.current_round = data[key]
+                print("Updated Round:", self.current_round)
+            elif key == "table":
+                table_stat = data[key]
+                for stat in table_stat:
+                    self.table_status[stat] = table_stat[stat]
+                print("Updated table stats:", self.table_status)
+            elif key == "state":
+                self.game_state = GameState(data[key])
+            elif key == "player":
+                self.player_no = data[key]
+            elif key == "deals":
+                dealt_cards = data[key]
+                print(dealt_cards)          
+                for i in range(NUM_OF_PLAYERS):
+                    for card_value in dealt_cards[i]:
+                        self.players[i].add_card(self.all_cards[card_value])
+                self.update_table.emit()
+            else:
+                print("Unknown key from server: ", key)
 
     def emit_call(self, output, **kwargs):
         pygame.event.post(pygame.event.Event(CALL_EVENT, call=output))
@@ -301,8 +329,14 @@ class Table:
         """
         # TODO: Adjust the timing of sleep
         if self.game_state == GameState.DEALING:
-            self.shuffle_and_deal()
+            self.write_message("Waiting for shuffle...")
+            while(self.wait_for_data()):
+                pass
             self.write_message("Shuffle Complete!")
+            return 2
+            print("Confirming reshuffle...")
+            while(self.wait_for_data()):
+                pass
             self.reshuffling_players = []
             for i, player in enumerate(self.players):
                 if player.get_card_points() < 4:
@@ -347,21 +381,18 @@ class Table:
                 self.ongoing = False
                 self.game_state = GameState.ENDING
         else:
-            self.reset_game()
-            self.game_state = GameState.DEALING
-
-    def shuffle_and_deal(self):
-        """
-        Shuffle and deal the discard deck to the players, which should have 52 cards.
-        :return: None
-        """
-        if self.discard_deck:
-            for i in range(10):
-                random.shuffle(self.discard_deck)
-            for player in self.players:
-                for i in range(STARTING_HAND):
-                    player.add_card(self.discard_deck.pop())
-            self.update_table.emit()
+            ready = False
+            for event in game_events:
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_p:
+                    self.send_string('ready')
+                    ready = True
+                    break
+            if ready:
+                print('Waiting for reply...', flush=True)
+                try:
+                    self.wait_for_data()
+                except socket.timeout:
+                    pass
 
     def check_reshuffle(self, game_events):
         """

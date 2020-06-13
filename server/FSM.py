@@ -12,6 +12,7 @@ import players
 from ai_comp import ai
 from game_consts import GameState, PlayerRole, STARTING_HAND, NUM_OF_PLAYERS
 import json
+import random
 
 server = "localhost"
 port = 5555
@@ -56,8 +57,11 @@ class Table():
         conn.setblocking(False)
         print(addr, "Connected")
         self.connected_players.append(conn)
-        response = {'msg': 'Please ready up'}
-        conn.sendall(json.dumps(response).encode())
+        response = {'msg': 'Please ready up', 'player': 0}
+        self.send_json(conn, response)
+
+    def send_json(self, conn, data):
+        conn.sendall(json.dumps(data).encode())
 
     def exit_game(self):
         for conn in self.connected_players:
@@ -82,7 +86,8 @@ class Table():
         while True:
             if self.game_state == GameState.DEALING:
                 self.shuffle_and_deal()
-                self.write_message("Shuffle Complete!")
+                print("Shuffle Complete!")
+                return
                 self.reshuffling_players = []
                 for i, player in enumerate(self.players):
                     if player.get_card_points() < 4:
@@ -97,6 +102,7 @@ class Table():
                 else:
                     self.current_player = self.reshuffling_players[0]
                     self.game_state = GameState.POINT_CHECK
+                return
 
             elif self.game_state == GameState.POINT_CHECK:
                 reshuffle = self.check_reshuffle(game_events)
@@ -124,6 +130,7 @@ class Table():
                     self.game_state = GameState.ENDING
             else:
                 ready = [False] * len(self.connected_players)
+                print(ready)
                 while not all(ready):
                     replies, _, _ = select.select(self.connected_players,[],[])
                     for conn in replies:
@@ -136,21 +143,26 @@ class Table():
                 self.reset_game()
                 print(self.table_status, self.current_round)
                 self.game_state = GameState.DEALING
-                return
+                status = {"table": self.table_status, "round":self.current_round, 'state': self.game_state.value}
+                self.send_json(conn, status)
 
     def shuffle_and_deal(self):
         """
         Shuffle and deal the discard deck to the players, which should have 52 cards.
         :return: None
         """
+        hands = {'deals': []}
         if self.discard_deck:
-            for i in range(10):
+            for _ in range(10):
                 random.shuffle(self.discard_deck)
             for player in self.players:
-                for i in range(STARTING_HAND):
+                for _ in range(STARTING_HAND):
                     player.add_card(self.discard_deck.pop())
+                hands['deals'].append(player.cards)
 
-            self.update_table.emit()
+        print(hands)    
+        for conn in self.connected_players:
+            self.send_json(conn, hands)
 
     def check_reshuffle(self, game_events):
         """

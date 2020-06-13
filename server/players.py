@@ -15,7 +15,7 @@ class Player():
         self.AI = ai_component
         self._table_status = None  # This is found in Table and updated through Table
         self.score = 0
-        self.hand = []
+        self.cards = []
 
     def connect_to_table(self, table):
         self._table_status = table
@@ -26,10 +26,10 @@ class Player():
         self.selectable = False
     
     def add_card(self, value):
-        self.hand.append(value)
+        self.cards.append(value)
     
     def remove_card(self):
-        return self.hand.pop()
+        return self.cards.pop()
 
     def make_decision(self, game_state, sub_state, game_events=None):
         """
@@ -174,5 +174,5 @@ class Player():
         return input("Reshuffle? (y/n)").lower() == 'y'
 
     def is_empty(self):
-        return len(self.hand) == 0
+        return len(self.cards) == 0
 
