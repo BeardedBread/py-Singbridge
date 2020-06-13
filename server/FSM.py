@@ -11,6 +11,7 @@ import sys
 import players
 from ai_comp import ai
 from game_consts import GameState, PlayerRole, STARTING_HAND, NUM_OF_PLAYERS
+import json
 
 server = "localhost"
 port = 5555
@@ -55,7 +56,8 @@ class Table():
         conn.setblocking(False)
         print(addr, "Connected")
         self.connected_players.append(conn)
-        conn.sendall(b"ready up\n")
+        response = {'msg': 'Please ready up'}
+        conn.sendall(json.dumps(response).encode())
 
     def exit_game(self):
         for conn in self.connected_players:

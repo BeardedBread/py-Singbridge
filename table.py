@@ -8,6 +8,7 @@ import time
 from signalslot import Signal
 from ai_comp import ai
 from game_consts import GameState, PlayerRole, STARTING_HAND, NUM_OF_PLAYERS, CALL_EVENT
+import json
 
 VIEW_TRANSPARENT = False  # Make the text box not transparent, DEBUG only
 
@@ -222,7 +223,8 @@ class Table:
         self.UI_elements = [self.calling_panel, self.yes_button, self.no_button]
 
         self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.client.setblocking(False)
+        #self.client.setblocking(False)
+        self.client.settimeout(5.0)
         self.connect()
 
     def connect(self):
@@ -231,6 +233,25 @@ class Table:
             print(self.client.recv(2048).decode())
         except:
             pass
+
+    def send_and_receive(self, data):
+        self.send_string(data)
+        return self.wait_for_data()
+
+    def send_string(self, data):
+        self.client.send(data.encode())
+    
+    def wait_for_data(self):
+        try:
+            data = self.client.recv(1024).decode()
+        except socket.timeout:
+            return None
+
+        try:
+            data = json.loads(data)
+        except json.JSONDecodeError:
+            return None
+        return data
 
     def emit_call(self, output, **kwargs):
         pygame.event.post(pygame.event.Event(CALL_EVENT, call=output))

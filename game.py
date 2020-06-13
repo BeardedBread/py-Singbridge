@@ -50,10 +50,8 @@ class GameScreen(view.PygView):
                         if event.key == pygame.K_p:
                             #if not self.table.ongoing:
                             #    self.table.ongoing = True
-                            self.table.client.send(b"ready")
-                    #self.table.process_UI(event)
-                #if self.table.ongoing:
-                    #self.table.continue_game(all_events)
+                            print(self.table.send_and_receive('ready'))
+                            self.running = False  
         except:
             track = traceback.format_exc()
             print(track)
