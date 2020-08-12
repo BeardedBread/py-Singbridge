@@ -1,5 +1,4 @@
 from enum import Enum
-import pygame
 
 class GameState(Enum):
     DEALING = 0
@@ -7,7 +6,6 @@ class GameState(Enum):
     BIDDING = 2
     PLAYING = 3
     ENDING = 4
-    POINT_CHECK_WAIT = 5
 
 
 class PlayerRole(Enum):
@@ -21,6 +19,3 @@ NUM_OF_PLAYERS = 4
 STARTING_HAND = 13
 HIGHEST_CARD = 414
 LOWEST_CARD = 102
-DOUBLE_CLICK_EVENT = pygame.USEREVENT + 1
-DOUBLE_CLICK_TIMING = 300
-CALL_EVENT = pygame.USEREVENT + 2

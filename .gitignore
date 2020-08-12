@@ -5,3 +5,4 @@ math_ext.py
 .idea
 __pycache__/
 last_game_rng.rng
+*.pyc

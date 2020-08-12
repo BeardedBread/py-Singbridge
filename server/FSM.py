@@ -46,6 +46,7 @@ class Table():
         self.discard_deck = self.prepare_playing_cards()
 
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.connected_players = []
         try:
             self.server.bind((server, port))
@@ -61,6 +62,12 @@ class Table():
         response = {'msg': 'Please ready up', 'player': 0}
         self.send_json(conn, response)
 
+    def wait_for_player_res(self, player_num):
+        reply, _, _ = select.select([self.connected_players[player_num]],[],[])
+        data = reply[0].recv(1024).decode()
+        print(data)
+        return data
+
     def send_json_to_all(self, data):
         print("Sending ", data, " to all")
         sent = [False] * len(self.connected_players)
@@ -72,6 +79,17 @@ class Table():
                 num = self.connected_players.index(conn)
                 sent[num] = True
         print("Sent to all!")
+
+    def send_json_to_player(self, data, player_num):
+        print("Sending ", data, " player ", player_num)
+        sent = False
+
+        while not sent:
+            _, readied, _ = select.select([],[self.connected_players[player_num]],[])
+            for conn in readied:
+                self.send_json(conn, data)
+                sent = True
+        print("Sent to player ", player_num)
         
 
     def send_json(self, conn, data):
@@ -107,6 +125,7 @@ class Table():
                     if player.get_card_points() < 4:
                         print("Low points detected in Player {0:d}! ".format(i))
                         self.reshuffling_players.append(i)
+
                 self.send_json_to_all({'shuffle': self.reshuffling_players})
                 if not self.reshuffling_players:
                     print('No Reshuffle needed!')
@@ -117,18 +136,19 @@ class Table():
                 else:
                     self.current_player = self.reshuffling_players[0]
                     self.game_state = GameState.POINT_CHECK
-                return
 
             elif self.game_state == GameState.POINT_CHECK:
-                reshuffle = self.check_reshuffle(game_events)
+                reshuffle = self.check_reshuffle()
+                self.send_json_to_all({"reshuff_res": reshuffle})
                 if reshuffle:
-                    self.write_message('Reshuffle Initiated!', line=1)
+                    #self.write_message('Reshuffle Initiated!', line=1)
                     self.game_state = GameState.ENDING
                 else:
-                    self.write_message('No Reshuffle needed!')
+                    #self.write_message('No Reshuffle needed!')
                     self.game_state = GameState.BIDDING
-                    self.write_message("Start to Bid")
+                    #self.write_message("Start to Bid")
                     self.prepare_bidding()
+                return
 
             elif self.game_state == GameState.BIDDING:
                 bid_complete = self.start_bidding(game_events)
@@ -144,21 +164,24 @@ class Table():
                     self.ongoing = False
                     self.game_state = GameState.ENDING
             else:
-                ready = [False] * len(self.connected_players)
-                while not all(ready):
-                    replies, _, _ = select.select(self.connected_players,[],[])
-                    for conn in replies:
-                        data = conn.recv(1024).decode()
-                        print(data)
-                        if data == "ready":
-                            num = self.connected_players.index(conn)
-                            ready[num] = True
+                self.block_wait_player_ready()
                 print("All players ready!")
                 self.reset_game()
                 print(self.table_status, self.current_round)
                 self.game_state = GameState.DEALING
                 status = {"table": self.table_status, "round":self.current_round, 'state': self.game_state.value}
                 self.send_json_to_all(status)
+
+    def block_wait_player_ready(self):
+        ready = [False] * len(self.connected_players)
+        while not all(ready):
+            replies, _, _ = select.select(self.connected_players,[],[])
+            for conn in replies:
+                data = conn.recv(1024).decode()
+                print(data)
+                if data == "ready":
+                    num = self.connected_players.index(conn)
+                    ready[num] = True
 
     def shuffle_and_deal(self):
         """
@@ -178,22 +201,26 @@ class Table():
         for conn in self.connected_players:
             self.send_json(conn, hands)
 
-    def check_reshuffle(self, game_events):
+    def check_reshuffle(self):
         """
         Detect any possible reshuffle request within the players
         :return: True if reshuffle requested, else False
         """
-        while(self.current_player == self.reshuffling_players[-1]):
-            self.write_message("Do you want a reshuffle?", line=1, update_now=False)
-            self.update_table.emit()
-            reshuffle = self.players[self.current_player].make_decision(self.game_state, 0)
-
-            if reshuffle:
-                return True
+        count = 0
+        while(count < NUM_OF_PLAYERS):
+            #self.write_message("Do you want a reshuffle?", line=1, update_now=False)
+            #self.update_table.emit()
+            if (self.current_player in self.reshuffling_players):
+                if self.players[self.current_player].AI:
+                    reshuffle = self.players[self.current_player].make_decision(self.game_state, 0)
+                else:
+                    self.send_json_to_player({"req_reshuff": self.current_player}, self.current_player)
+                    reshuffle = self.wait_for_player_res(self.current_player) == 'True'
+                if reshuffle:
+                    return True
 
             self.current_player = (self.current_player + 1)%NUM_OF_PLAYERS
-            while self.current_player not in self.reshuffling_players:
-                self.current_player = (self.current_player + 1) % NUM_OF_PLAYERS
+            count += 1
         return False
 
     def prepare_bidding(self):
@@ -210,6 +237,12 @@ class Table():
         msg = 'Bid Leader: Player {0:d}'.format((self.current_player - self.passes -
                                                  1 * (not self.first_player)) % NUM_OF_PLAYERS)
         print(msg)
+
+        data = {'bid': 
+        {'start': self.current_player}, 
+        'current': self.table_status["bid"], 
+        'leader': (self.current_player - self.passes - 1 * (not self.first_player)) % NUM_OF_PLAYERS}
+        self.send_json_to_all(data)
 
     def start_bidding(self, game_events):
         """
