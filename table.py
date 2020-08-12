@@ -196,7 +196,7 @@ class Table:
 
         self.update_all_players(role=True, wins=True, clear_wins=True)
 
-        self.write_message("Press P to play!")
+        self.write_message("")
 
         self.ongoing = False
         self.require_player_input = False
@@ -234,11 +234,15 @@ class Table:
         self.reshuffle_result = False
 
     def connect(self):
+        self.write_message("Connecting...")
         try:
             self.client.connect((server, port))
             print(self.wait_for_data())
+            self.write_message("Press P to Ready Up")
+            return True
         except:
-            pass
+            #print("Timeout")
+            return False
 
     def send_and_receive(self, data):
         self.send_string(data)

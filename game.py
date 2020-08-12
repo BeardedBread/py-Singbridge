@@ -38,6 +38,7 @@ class GameScreen(view.PygView):
 
     def run(self):
         self.running = True
+        connected = False
         try:
             while self.running:
                 all_events = pygame.event.get()
@@ -48,9 +49,12 @@ class GameScreen(view.PygView):
                         if event.key == pygame.K_ESCAPE:
                             self.running = False
                     self.table.process_UI(event)
-                if (self.table.continue_game(all_events)  == 2):
-                    input("Input any key to continue")
-                    self.running = False
+                if not connected:
+                    connected = self.table.connect()
+                else:
+                    if (self.table.continue_game(all_events)  == 2):
+                        input("Input any key to continue")
+                        self.running = False
         except:
             track = traceback.format_exc()
             print(track)
