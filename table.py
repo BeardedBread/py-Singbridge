@@ -218,12 +218,9 @@ class Table(client):
 
         self.UI_elements = [self.calling_panel, self.yes_button, self.no_button]
 
-
-        self.connected = False
-        self.dealt = False
-        self.point_checked = False
         self.reshuffle_asked = False
         self.reshuffle_result = False
+        self.write_message("Connecting...")
 
     def process_server_response(self, blocking=True):
         try:
@@ -234,6 +231,7 @@ class Table(client):
         for key in data:
             if key == "msg":
                 print(data[key])
+                self.write_message(data[key])
             elif key == "round":
                 self.current_round = data[key]
                 print("Updated Round:", self.current_round)
@@ -250,14 +248,12 @@ class Table(client):
                 self.current_player = data[key]
                 self.display_current_player(self.current_player)
             elif key == "shuffle":
-                self.point_checked = True
                 self.reshuffling_players = data[key]
             elif key == "deals":
                 dealt_cards = data[key]    
                 for i in range(NUM_OF_PLAYERS):
                     for card_value in dealt_cards[i]:
                         self.players[i].add_card(self.all_cards[card_value])
-                self.dealt = True
                 self.update_table.emit()
             elif key == "req_reshuff":
                 self.reshuffle_asked = True
@@ -319,14 +315,10 @@ class Table(client):
         """
         # TODO: Adjust the timing of sleep
         if self.game_state == GameState.DEALING:
-            print("tset")
             self.write_message("Waiting for shuffle...")
-            while(not self.dealt):
-                self.process_server_response()
-            #self.write_message("Shuffle Complete!")
+            self.process_server_response()
             self.write_message("Confirming reshuffle...")
-            while(not self.point_checked):
-                self.process_server_response()
+            self.process_server_response()
 
             if len(self.reshuffling_players) == 0:
                 self.write_message('No Reshuffle needed!')
