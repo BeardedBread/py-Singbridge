@@ -8,16 +8,11 @@ import time
 from signalslot import Signal
 from ai_comp import ai
 from game_consts import GameState, PlayerRole, STARTING_HAND, NUM_OF_PLAYERS, CALL_EVENT
-import json
-
+from client import client
 VIEW_TRANSPARENT = False  # Make the text box not transparent, DEBUG only
 
-import socket
 
-server = "localhost"
-port = 5555
-
-class Table:
+class Table(client):
     """
     A Table is the place where all actions takes place. It is essentially a FSM, doing different
     routines at each state. It needs to keep track of the score, roles, the rules, etc. It needs
@@ -55,6 +50,7 @@ class Table:
     """
 
     def __init__(self, x, y, width, height, clear_colour, autoplay=False, view_all_cards=False, terminal=False):
+        super().__init__()
         # TODO: Reduce the amount of update_table call
         self.update_table = Signal()
         self.x = x
@@ -222,58 +218,19 @@ class Table:
 
         self.UI_elements = [self.calling_panel, self.yes_button, self.no_button]
 
-        self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        #self.client.setblocking(False)
-        self.client.settimeout(5.0)
-        self.recv_buffer = ''
-        self.connect()
 
+        self.connected = False
         self.dealt = False
         self.point_checked = False
         self.reshuffle_asked = False
         self.reshuffle_result = False
 
-    def connect(self):
-        self.write_message("Connecting...")
+    def process_server_response(self, blocking=True):
         try:
-            self.client.connect((server, port))
-            print(self.wait_for_data())
-            self.write_message("Press P to Ready Up")
-            return True
+            data = self.data_queue.get(blocking)
         except:
-            #print("Timeout")
-            return False
+            return
 
-    def send_and_receive(self, data):
-        self.send_string(data)
-        return self.wait_for_data()
-
-    def send_string(self, data):
-        self.client.send(data.encode())
-    
-    def wait_for_data(self):
-        try:
-            payload = self.client.recv(1024).decode()
-            print(payload)
-            payload = payload.split('\r\n')
-            if len(payload) == 0:
-                return False
-            payload[0] = self.recv_buffer + payload[0]
-            self.recv_buffer = payload.pop()
-        except socket.timeout:
-            return False
-
-        try:
-            print(payload)
-            for data in payload:
-                data = json.loads(data)
-                if data:
-                    self.process_server_response(data)
-        except json.JSONDecodeError:
-            return False
-        return True
-
-    def process_server_response(self, data):
         for key in data:
             if key == "msg":
                 print(data[key])
@@ -362,13 +319,14 @@ class Table:
         """
         # TODO: Adjust the timing of sleep
         if self.game_state == GameState.DEALING:
+            print("tset")
             self.write_message("Waiting for shuffle...")
             while(not self.dealt):
-                self.wait_for_data()
+                self.process_server_response()
             #self.write_message("Shuffle Complete!")
             self.write_message("Confirming reshuffle...")
             while(not self.point_checked):
-                self.wait_for_data()
+                self.process_server_response()
 
             if len(self.reshuffling_players) == 0:
                 self.write_message('No Reshuffle needed!')
@@ -377,7 +335,7 @@ class Table:
             else:
                 if self.player_no in self.reshuffling_players:
                     if not self.reshuffle_asked:
-                        self.wait_for_data()
+                        self.process_server_response()
                     print("LOL")
                     self.game_state = GameState.POINT_CHECK
                 else:
@@ -395,7 +353,7 @@ class Table:
             self.game_state = GameState.POINT_CHECK_WAIT
 
         elif self.game_state == GameState.POINT_CHECK_WAIT:
-            self.wait_for_data()
+            self.process_server_response()
 
             if self.reshuffle_result:
                 self.game_state == GameState.ENDING
@@ -426,10 +384,7 @@ class Table:
                     break
             if ready:
                 print('Waiting for reply...', flush=True)
-                try:
-                    self.wait_for_data()
-                except socket.timeout:
-                    pass
+                self.process_server_response()
 
     
     def prepare_bidding(self):

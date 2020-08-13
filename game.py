@@ -51,6 +51,8 @@ class GameScreen(view.PygView):
                     self.table.process_UI(event)
                 if not connected:
                     connected = self.table.connect()
+                    if connected:
+                        self.table.process_server_response()
                 else:
                     if (self.table.continue_game(all_events)  == 2):
                         input("Input any key to continue")
@@ -58,5 +60,5 @@ class GameScreen(view.PygView):
         except:
             track = traceback.format_exc()
             print(track)
-        self.table.client.close()
+        self.table.disconnect()
         pygame.quit()
