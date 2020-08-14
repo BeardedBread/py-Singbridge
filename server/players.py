@@ -28,8 +28,8 @@ class Player():
     def add_card(self, value):
         self.cards.append(value)
     
-    def remove_card(self):
-        return self.cards.pop()
+    def remove_card(self, pos):
+        return self.cards.pop(pos)
 
     def make_decision(self, game_state, sub_state, game_events=None):
         """
@@ -92,7 +92,7 @@ class Player():
         The procedure to call a partner
         :return: A valid card value
         """
-        current_card_values = self.get_deck_values()
+        current_card_values = self.cards
         msg = ''
         while True:
             partner = input("Please call your partner card. Enter card number + suit number \n"
@@ -131,6 +131,9 @@ class Player():
     def view_last_round(self):
         pass
 
+    def check_card_in(self, card):
+        return card in self.cards
+
     def check_for_valid_plays(self, card, leading):
         """
         Check if the card played is valid
@@ -144,13 +147,12 @@ class Player():
         if leading:
             if not self._table_status['trump broken'] and \
                     card_suit == self._table_status['trump suit']:
-                if any([not cards.get_card_suit(crd) == self._table_status['trump suit'] for crd in self.get_deck_values()]):
+                if any([not cards.get_card_suit(crd) == self._table_status['trump suit'] for crd in self.cards]):
                     return False
         else:
             leading_card_suit = self._table_status['played cards'][self._table_status["leading player"]].suit()
             if not card_suit == leading_card_suit and \
-                any([cards.get_card_suit(crd) == leading_card_suit for crd in
-                    self.get_deck_values()]):
+                any([cards.get_card_suit(crd) == leading_card_suit for crd in self.cards]):
                 return False
 
         return True

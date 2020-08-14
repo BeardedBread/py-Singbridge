@@ -7,7 +7,7 @@
 import threading
 import sys
 import players
-from ai_comp import ai
+import ai
 from game_consts import GameState, PlayerRole, STARTING_HAND, NUM_OF_PLAYERS
 import random
 import cards
@@ -93,14 +93,15 @@ class Table(Server):
                     self.game_state = GameState.BIDDING
                     #self.write_message("Start to Bid")
                     self.prepare_bidding()
-                return
 
             elif self.game_state == GameState.BIDDING:
-                bid_complete = self.start_bidding(game_events)
+                bid_complete = self.bid_phase()
+                return
                 if bid_complete:
                     self.game_state = GameState.PLAYING
                     self.update_all_players(role=True, wins=True)
                     self.update_team_scores()
+                return
 
             elif self.game_state == GameState.PLAYING:
                 self.play_a_round(game_events)
@@ -173,78 +174,93 @@ class Table(Server):
         print(msg)
 
         data = {'bid': 
-        {'start': self.current_player}, 
-        'current': self.table_status["bid"], 
-        'leader': (self.current_player - self.passes - 1 * (not self.first_player)) % NUM_OF_PLAYERS}
+        {'current': self.current_player, 
+        'bid': self.table_status["bid"], 
+        'previous': (self.current_player, self.table_status["bid"]), 
+        'leader': (self.current_player - self.passes - 1 * (not self.first_player)) % NUM_OF_PLAYERS}}
         self.send_json_to_all(data)
 
-    def start_bidding(self, game_events):
+    def bid_phase(self):
         """
         The bidding procedure. Flag up if player input required
         :return: Whether bidding is completed
         """
         # Highest bid: 7 NoTrump. No further check required
-        if self.passes < NUM_OF_PLAYERS - 1 and self.table_status["bid"] < 75:
-            player_bid, msg = self.players[self.current_player].make_decision(self.game_state, 0)
+        while self.passes < NUM_OF_PLAYERS - 1 and self.table_status["bid"] < 75:
+            if self.players[self.current_player].AI:
+                player_bid = self.players[self.current_player].make_decision(self.game_state, 0)
+            else:
+                while True:
+                    self.send_json_to_player({"bid_request": self.current_player}, self.current_player)
+                    player_bid = int(self.wait_for_player_res(self.current_player))
+                    if self.table_status["bid"] < player_bid or player_bid == 0:
+                        self.send_json_to_player({"bid_res": (True, "",  self.table_status['bid'])}, self.current_player)
+                        break
+                    else:
+                        if player_bid > 75:
+                            self.send_json_to_player({"bid_res": (False, "You cannot bid beyond 7 No Trump", self.table_status['bid'])}, self.current_player)
+                        else:
+                            self.send_json_to_player({"bid_res": (False, "You might need to bid higher",  self.table_status['bid'])}, self.current_player)
             
-            if msg:
-                self.write_message(msg, delay_time=1, update_now=True)
             if player_bid < 0:
                 return False
-            self.write_message("", delay_time=0, update_now=False)
             if not player_bid:
                 if not self.first_player:  # Starting bidder pass do not count at the start
                     self.passes += 1
             else:
                 self.table_status["bid"] = player_bid
                 self.passes = 0
-                msg = "Current Bid: {0:d} {1:s}".format(self.table_status["bid"] // 10,
-                                                        cards.get_suit_string(self.table_status["bid"] % 10))
-                self.write_message(msg, line=1, update_now=False)
-                msg = 'Bid Leader: Player {0:d}'.format(self.current_player)
-                self.write_message(msg, line=2, update_now=True)
 
             if self.first_player:
                 self.first_player = False
 
+            next_player = self.current_player
             if self.table_status["bid"] < 75:
-                self.current_player += 1
-                self.current_player %= NUM_OF_PLAYERS
+                next_player += 1
+                next_player %= NUM_OF_PLAYERS
+
+            data = {'bid': 
+                    {'current': next_player, 
+                    'bid': self.table_status["bid"], 
+                    'previous': (self.current_player, player_bid), 
+                    'leader': (next_player- self.passes - 1 * (not self.first_player)) % NUM_OF_PLAYERS}}
+            self.send_json_to_all(data)
+            self.current_player = next_player
+            #self.display_current_player(self.current_player)
+        self.send_json_to_all({"bid_complete":True})
+        return 
+        if not self.require_player_input:
+            self.write_message("Player {0:d} is the bid winner!".format(self.current_player), delay_time=1)
+            msg = "Player {0:d} is calling a partner...".format(self.current_player)
+            self.write_message(msg, delay_time=1)
             self.display_current_player(self.current_player)
+            while not partner:
+                partner, msg = self.players[self.current_player].make_decision(self.game_state, 1, game_events)
+            if msg:
+                self.write_message(msg, delay_time=0, update_now=True)
 
+            self.table_status["partner"] = partner
+
+        # Setup the table status before the play starts
+        self.table_status['partner reveal'] = False
+        self.table_status["trump suit"] = self.table_status["bid"] % 10
+        self.table_status["trump broken"] = False
+        self.table_status['played cards'] = [0, 0, 0, 0]
+        if self.table_status['trump suit'] == 5:
+            self.table_status["leading player"] = self.current_player
         else:
-            if not self.require_player_input:
-                self.write_message("Player {0:d} is the bid winner!".format(self.current_player), delay_time=1)
-                msg = "Player {0:d} is calling a partner...".format(self.current_player)
-                self.write_message(msg, delay_time=1)
-                self.display_current_player(self.current_player)
-                while not partner:
-                    partner, msg = self.players[self.current_player].make_decision(self.game_state, 1, game_events)
-                if msg:
-                    self.write_message(msg, delay_time=0, update_now=True)
+            self.table_status["leading player"] = (self.current_player + 1) % NUM_OF_PLAYERS
+        self.table_status['defender']['target'] = self.table_status["bid"] // 10 + 6
+        self.table_status['attacker']['target'] = 14 - self.table_status['defender']['target']
 
-                self.table_status["partner"] = partner
+        # Set the roles of the players
+        self.players[self.current_player].role = PlayerRole.DECLARER
 
-            # Setup the table status before the play starts
-            self.table_status['partner reveal'] = False
-            self.table_status["trump suit"] = self.table_status["bid"] % 10
-            self.table_status["trump broken"] = False
-            self.table_status['played cards'] = [0, 0, 0, 0]
-            if self.table_status['trump suit'] == 5:
-                self.table_status["leading player"] = self.current_player
-            else:
-                self.table_status["leading player"] = (self.current_player + 1) % NUM_OF_PLAYERS
-            self.table_status['defender']['target'] = self.table_status["bid"] // 10 + 6
-            self.table_status['attacker']['target'] = 14 - self.table_status['defender']['target']
-
-            # Set the roles of the players
-            self.players[self.current_player].role = PlayerRole.DECLARER
-
-            self.write_message('Bidding Complete', delay_time=0)
-            msg = 'Trump: {1:s}, Partner: {0:s}'.format(cards.get_card_string(self.table_status["partner"]),
-                                                        cards.get_suit_string(self.table_status['trump suit']))
-            self.write_message(msg, line=1, delay_time=1)
-            return True
+        self.write_message('Bidding Complete', delay_time=0)
+        msg = 'Trump: {1:s}, Partner: {0:s}'.format(cards.get_card_string(self.table_status["partner"]),
+                                                    cards.get_suit_string(self.table_status['trump suit']))
+        self.write_message(msg, line=1, delay_time=1)
+        return True
 
     def play_a_round(self, game_events):
         """

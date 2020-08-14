@@ -218,6 +218,8 @@ class Table(client):
 
         self.UI_elements = [self.calling_panel, self.yes_button, self.no_button]
 
+        self.require_input = False
+        self.bid_complete = False
         self.reshuffle_asked = False
         self.reshuffle_result = False
         self.write_message("Connecting...")
@@ -225,6 +227,7 @@ class Table(client):
     def process_server_response(self, blocking=True):
         try:
             data = self.data_queue.get(blocking)
+            print("Process:", data)
         except:
             return
 
@@ -264,6 +267,21 @@ class Table(client):
                 self.update_table.emit()
             elif key == "reshuff_res":
                 self.reshuffle_result = data[key]
+                self.calling_panel.cancel_button.visible = True
+                self.calling_panel.change_lists_elements([str(i+1) for i in range(7)],
+                                                        ['Clubs', 'Diamonds', 'Hearts', 'Spades', 'No Trump'])
+            elif key == "bid":
+                self.display_bidding(data[key])
+            elif key == "bid_request":
+                self.require_input = True
+            elif key == "bid_res":
+                self.require_input = not data[key][0]
+                self.write_message(data[key][1])
+                msg = "Current Bid: {0:d} {1:s}".format(data[key][2] // 10,
+                                                        cards.get_suit_string(data[key][2] % 10))
+                self.write_message(msg, line=1, delay_time=0)
+            elif key == "bid_complete":
+                self.bid_complete = True
             else:
                 print("Unknown key from server: ", key)
 
@@ -348,19 +366,31 @@ class Table(client):
             self.process_server_response()
 
             if self.reshuffle_result:
-                self.game_state == GameState.ENDING
+                self.game_state = GameState.ENDING
             else:
-                self.game_state == GameState.BIDDING
-
-            return 2
+                self.calling_panel.visible = True
+                self.update_table.emit()
+                self.game_state = GameState.BIDDING
         
         elif self.game_state == GameState.BIDDING:
-            bid_complete = self.start_bidding(game_events)
-            if bid_complete:
+            if not self.require_input:
+                self.process_server_response()
+            if self.require_input:
+                player_bid, msg = self.players[self.player_no].make_decision(self.game_state, 0, game_events)
+                if msg:
+                    self.write_message(msg, delay_time=1, update_now=True)
+                if player_bid < 0:
+                    return 0          
+                self.send_string(str(player_bid))
+                self.process_server_response()
+                self.require_input = False
+                #self.calling_panel.visible = False
+                #self.update_table.emit()
+            if self.bid_complete:
                 self.game_state = GameState.PLAYING
                 self.update_all_players(role=True, wins=True)
                 self.update_team_scores()
-
+                return 2
         elif self.game_state == GameState.PLAYING:
             self.play_a_round(game_events)
             if self.current_round == 13:
@@ -379,26 +409,16 @@ class Table(client):
                 self.process_server_response()
 
     
-    def prepare_bidding(self):
+    def display_bidding(self, bid_data):
         # Randomly pick a starting player, whom also is the current bid winner
-        self.current_player = random.randint(1, NUM_OF_PLAYERS) - 1
-        print("Starting Player: {0:d}".format(self.current_player))
-        self.passes = 0
-        self.table_status["bid"] = 11  # Lowest Bid: 1 Club by default
-        self.first_player = True  # Starting bidder "privilege" to raise the starting bid
-        msg = "Current Bid: {0:d} {1:s}".format(self.table_status["bid"] // 10,
-                                                cards.get_suit_string(self.table_status["bid"] % 10))
+        print("Current Player: {0:d}".format(bid_data["current"]))
+        msg = "Current Bid: {0:d} {1:s}".format(bid_data["bid"] // 10,
+                                                cards.get_suit_string(bid_data["bid"] % 10))
         self.write_message(msg, line=1, delay_time=0)
-        self.display_current_player(self.current_player)
-        self.update_player_bid(self.current_player, 11, update_now=False)
-        msg = 'Bid Leader: Player {0:d}'.format((self.current_player - self.passes -
-                                                 1 * (not self.first_player)) % NUM_OF_PLAYERS)
+        self.display_current_player(bid_data["current"])
+        self.update_player_bid(bid_data["previous"][0], bid_data["previous"][1], update_now=False)
+        msg = 'Bid Leader: Player {0:d}'.format(bid_data["leader"])
         self.write_message(msg, line=2, delay_time=0.5)
-
-        if not self.terminal_play:
-            self.calling_panel.cancel_button.visible = True
-            self.calling_panel.change_lists_elements([str(i+1) for i in range(7)],
-                                                     ['Clubs', 'Diamonds', 'Hearts', 'Spades', 'No Trump'])
 
     def start_bidding(self, game_events):
         """
@@ -697,7 +717,7 @@ class Table(client):
         :return:
         """
         self.player_stats[player_num][2].fill((255, 255, 255, 255 * VIEW_TRANSPARENT))
-        if not bid:
+        if bid == 0:
             rendered_text = self.player_font.render("Pass".format(self.players[player_num].score), True,
                                                     (255, 255, 255)).convert_alpha()
         else:

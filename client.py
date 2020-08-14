@@ -54,7 +54,7 @@ class client:
                 for data in payload:
                     data = json.loads(data)
                     if data:
-                        print(data)
+                        #print(data)
                         self.data_queue.put(data)
             except json.JSONDecodeError:
                 pass

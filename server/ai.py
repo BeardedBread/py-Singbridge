@@ -9,7 +9,7 @@ AI possesses the table knowledge and the hand
 AI should not modify the player cards and table data. They are read only.
 """
 import random
-#import cards
+import cards
 import math
 
 
@@ -284,7 +284,7 @@ class VivianAI(RandomAI):
         [self.unplayed_cards.append([i+2 for i in range(13)]) for _ in range(4)]
 
     def estimate_wins(self):
-        player_cards = self.player.get_deck_values()
+        player_cards = self.player.cards
         card_suits = [cards.get_card_suit(crd) for crd in player_cards]
         card_nums = [cards.get_card_number(crd) for crd in player_cards]
 
