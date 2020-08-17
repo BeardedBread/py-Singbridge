@@ -225,12 +225,12 @@ class MainPlayer(Player):
                     partner = event.call
                     partner = cards.convert_input_string(partner)
                     if partner in current_card_values:
-                        return False, "Please call a card outside of your hand"
+                        return -1, "Please call a card outside of your hand"
                     elif cards.card_check(partner):
                         return partner, ""
                     else:
-                        return False, "Invalid card call"
-        return False, ''
+                        return -1, "Invalid card call"
+        return -1, ''
 
     def make_a_play(self, substate, game_events=None):
         card = None

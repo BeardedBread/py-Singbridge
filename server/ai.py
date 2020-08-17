@@ -43,19 +43,18 @@ class BaseAI:
         return
 
     def get_valid_plays(self, leading):
-        all_plays = self.player.get_deck_values()
         possible_plays = None
         if leading:
             if not self.table_status['trump broken']:
-                possible_plays = [card for card in all_plays
+                possible_plays = [card for card in self.player.cards
                                   if not cards.get_card_suit(card) == self.table_status['trump suit']]
         else:
             leading_suit = self.table_status['played cards'][self.table_status["leading player"]].suit()
-            possible_plays = [card for card in all_plays
+            possible_plays = [card for card in self.player.cards
                               if cards.get_card_suit(card) == leading_suit]
 
         if not possible_plays:
-            return all_plays
+            return self.player.cards
         return possible_plays
 
 
@@ -87,12 +86,11 @@ class RandomAI(BaseAI):
 
         :return: int - the card value
         """
-        player_cards = self.player.get_deck_values()
         other_cards = []
         for i in range(4):
             for j in range(13):
                 current_card = (i + 1) * 100 + j + 2
-                if current_card not in player_cards:
+                if current_card not in self.player.cards:
                     other_cards.append(current_card)
         return random.choice(other_cards)
 
@@ -160,9 +158,8 @@ class VivianAI(RandomAI):
 
         :return: int - the card value
         """
-        player_cards = self.player.get_deck_values()
-        card_suits = [cards.get_card_suit(crd) for crd in player_cards]
-        card_nums = [cards.get_card_number(crd) for crd in player_cards]
+        card_suits = [cards.get_card_suit(crd) for crd in self.player.cards]
+        card_nums = [cards.get_card_number(crd) for crd in self.player.cards]
         trump_suit = self.table_status["bid"] % 10
         trump_nums = [num for suit, num in zip(card_suits, card_nums) if suit == trump_suit]
 

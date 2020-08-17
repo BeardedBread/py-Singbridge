@@ -75,7 +75,7 @@ class Table(client):
                              'trump broken': False, 'round history': [], 'bid': 0, 'partner': 0,
                              'partner reveal': False, 'defender': {'target': 0, 'wins': 0},
                              'attacker': {'target': 0, 'wins': 0}}
-        self.player_no = 0
+        self.server_player_no = 0
 
         # Prepare the surfaces for displaying
         self.background = pygame.Surface((self.width, self.height))
@@ -222,6 +222,7 @@ class Table(client):
         self.bid_complete = False
         self.reshuffle_asked = False
         self.reshuffle_result = False
+        self.substate = 0
         self.write_message("Connecting...")
 
     def process_server_response(self, blocking=True):
@@ -246,22 +247,23 @@ class Table(client):
             elif key == "state":
                 self.game_state = GameState(data[key])
             elif key == "player":
-                self.player_no = data[key]
+                self.server_player_no = data[key]
             elif key == "current":
                 self.current_player = data[key]
                 self.display_current_player(self.current_player)
             elif key == "shuffle":
                 self.reshuffling_players = data[key]
             elif key == "deals":
-                dealt_cards = data[key]    
+                dealt_cards = data[key]
                 for i in range(NUM_OF_PLAYERS):
-                    for card_value in dealt_cards[i]:
+                    current_player = (self.server_player_no+i) % NUM_OF_PLAYERS
+                    for card_value in dealt_cards[current_player]:
                         self.players[i].add_card(self.all_cards[card_value])
                 self.update_table.emit()
             elif key == "req_reshuff":
                 self.reshuffle_asked = True
                 self.write_message("Do you want a reshuffle?", line=1, update_now=False)
-                if not self.players[self.player_no].AI:
+                if not self.players[0].AI:
                     self.yes_button.visible = True
                     self.no_button.visible = True
                 self.update_table.emit()
@@ -274,6 +276,13 @@ class Table(client):
                 self.display_bidding(data[key])
             elif key == "bid_request":
                 self.require_input = True
+                self.substate = data["bid_request"]
+                if data["bid_request"] == 1:
+                    self.calling_panel.cancel_button.visible = False
+                    self.calling_panel.change_lists_elements(['2','3','4','5','6','7','8','9','10','J','Q','K','A'],
+                                                             ['Clubs', 'Diamonds', 'Hearts', 'Spades'])
+                    self.update_table.emit()
+                    self.write_message("Please select a partner")
             elif key == "bid_res":
                 self.require_input = not data[key][0]
                 self.write_message(data[key][1])
@@ -281,7 +290,14 @@ class Table(client):
                                                         cards.get_suit_string(data[key][2] % 10))
                 self.write_message(msg, line=1, delay_time=0)
             elif key == "bid_complete":
-                self.bid_complete = True
+                self.bid_complete = True                
+                self.write_message('Bidding Complete', delay_time=0)
+                msg = 'Trump: {}, Partner: {}'.format(data["bid_complete"]["trump"],
+                                                      data["bid_complete"]["partner"])
+                self.write_message(msg, line=1, delay_time=1)
+                # Set the roles of the players
+                self.players[data["bid_complete"]["declarer"]].role = PlayerRole.DECLARER
+                self.display_current_player(data["bid_complete"]["declarer"])
             else:
                 print("Unknown key from server: ", key)
 
@@ -343,7 +359,7 @@ class Table(client):
                 self.game_state = GameState.BIDDING
                 self.write_message("Start to Bid")
             else:
-                if self.player_no in self.reshuffling_players:
+                if self.server_player_no in self.reshuffling_players:
                     if not self.reshuffle_asked:
                         self.process_server_response()
                     print("LOL")
@@ -352,7 +368,7 @@ class Table(client):
                     self.game_state = GameState.POINT_CHECK_WAIT
 
         elif self.game_state == GameState.POINT_CHECK:
-            reshuffle = self.players[self.current_player].make_decision(self.game_state, 0, game_events)
+            reshuffle = self.players[0].make_decision(self.game_state, 0, game_events)
             if reshuffle is None:
                 return None
             print(reshuffle)
@@ -376,7 +392,7 @@ class Table(client):
             if not self.require_input:
                 self.process_server_response()
             if self.require_input:
-                player_bid, msg = self.players[self.player_no].make_decision(self.game_state, 0, game_events)
+                player_bid, msg = self.players[self.server_player_no].make_decision(self.game_state, self.substate, game_events)
                 if msg:
                     self.write_message(msg, delay_time=1, update_now=True)
                 if player_bid < 0:
@@ -384,9 +400,9 @@ class Table(client):
                 self.send_string(str(player_bid))
                 self.process_server_response()
                 self.require_input = False
-                #self.calling_panel.visible = False
-                #self.update_table.emit()
             if self.bid_complete:
+                self.calling_panel.visible = False
+                self.update_table.emit()
                 self.game_state = GameState.PLAYING
                 self.update_all_players(role=True, wins=True)
                 self.update_team_scores()
@@ -519,8 +535,6 @@ class Table(client):
             self.table_status['defender']['target'] = self.table_status["bid"] // 10 + 6
             self.table_status['attacker']['target'] = 14 - self.table_status['defender']['target']
 
-            # Set the roles of the players
-            self.players[self.current_player].role = PlayerRole.DECLARER
 
             self.write_message('Bidding Complete', delay_time=0)
             msg = 'Trump: {1:s}, Partner: {0:s}'.format(cards.get_card_string(self.table_status["partner"]),

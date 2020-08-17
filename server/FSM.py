@@ -191,7 +191,7 @@ class Table(Server):
                 player_bid = self.players[self.current_player].make_decision(self.game_state, 0)
             else:
                 while True:
-                    self.send_json_to_player({"bid_request": self.current_player}, self.current_player)
+                    self.send_json_to_player({"bid_request": 0}, self.current_player)
                     player_bid = int(self.wait_for_player_res(self.current_player))
                     if self.table_status["bid"] < player_bid or player_bid == 0:
                         self.send_json_to_player({"bid_res": (True, "",  self.table_status['bid'])}, self.current_player)
@@ -227,19 +227,16 @@ class Table(Server):
             self.send_json_to_all(data)
             self.current_player = next_player
             #self.display_current_player(self.current_player)
-        self.send_json_to_all({"bid_complete":True})
-        return 
-        if not self.require_player_input:
-            self.write_message("Player {0:d} is the bid winner!".format(self.current_player), delay_time=1)
-            msg = "Player {0:d} is calling a partner...".format(self.current_player)
-            self.write_message(msg, delay_time=1)
-            self.display_current_player(self.current_player)
-            while not partner:
-                partner, msg = self.players[self.current_player].make_decision(self.game_state, 1, game_events)
-            if msg:
-                self.write_message(msg, delay_time=0, update_now=True)
+        #if not self.require_player_input:
+        self.send_json_to_all({"msg": "Player {0:d} is the bid winner!".format(self.current_player)})
+        #self.display_current_player(self.current_player)
+        if self.players[self.current_player].AI:
+            partner = self.players[self.current_player].make_decision(self.game_state, 1)
+        else:
+            self.send_json_to_player({"bid_request": 1}, self.current_player)
+            partner = int(self.wait_for_player_res(self.current_player))
 
-            self.table_status["partner"] = partner
+        self.table_status["partner"] = partner
 
         # Setup the table status before the play starts
         self.table_status['partner reveal'] = False
@@ -256,11 +253,13 @@ class Table(Server):
         # Set the roles of the players
         self.players[self.current_player].role = PlayerRole.DECLARER
 
-        self.write_message('Bidding Complete', delay_time=0)
-        msg = 'Trump: {1:s}, Partner: {0:s}'.format(cards.get_card_string(self.table_status["partner"]),
-                                                    cards.get_suit_string(self.table_status['trump suit']))
-        self.write_message(msg, line=1, delay_time=1)
-        return True
+        #msg = 'Trump: {1:s}, Partner: {0:s}'.format(cards.get_card_string(self.table_status["partner"]),
+        #                                            cards.get_suit_string(self.table_status['trump suit']))
+        self.send_json_to_all({"bid_complete":{
+            "trump": cards.get_suit_string(self.table_status['trump suit']),
+            "partner": cards.get_card_string(self.table_status["partner"]),
+            "declarer": self.current_player}
+        })
 
     def play_a_round(self, game_events):
         """
