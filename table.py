@@ -225,14 +225,15 @@ class Table(client):
         self.substate = 0
         self.write_message("Connecting...")
 
-    def process_server_response(self, blocking=True):
-        try:
-            data = self.data_queue.get(blocking)
-            print("Process:", data)
-        except:
-            return
+    def process_server_response(self, get_state, blocking=True):
+        while True:
+            try:
+                data = self.data_queue.get(blocking)
+                print("Process:", data)
+            except:
+                return
 
-        for key in data:
+            key = list(data.keys())[0]
             if key == "msg":
                 print(data[key])
                 self.write_message(data[key])
@@ -273,16 +274,19 @@ class Table(client):
                 self.calling_panel.change_lists_elements([str(i+1) for i in range(7)],
                                                         ['Clubs', 'Diamonds', 'Hearts', 'Spades', 'No Trump'])
             elif key == "bid":
-                self.display_bidding(data[key])
-            elif key == "bid_request":
-                self.require_input = True
-                self.substate = data["bid_request"]
-                if data["bid_request"] == 1:
+                self.substate = data[key]["substate"]
+                self.require_input = data[key]['current'] == self.server_player_no
+                if self.substate == 0:
+                    self.display_bidding(data[key])
+                if self.substate == 1:
                     self.calling_panel.cancel_button.visible = False
                     self.calling_panel.change_lists_elements(['2','3','4','5','6','7','8','9','10','J','Q','K','A'],
-                                                             ['Clubs', 'Diamonds', 'Hearts', 'Spades'])
+                                                            ['Clubs', 'Diamonds', 'Hearts', 'Spades'])
                     self.update_table.emit()
-                    self.write_message("Please select a partner")
+                    if self.require_input:
+                        self.write_message("Please select a partner")
+                    else:
+                        self.write_message("Waiting for Player {} to pick their partner".format(data["bid"]["current"]))
             elif key == "bid_res":
                 self.require_input = not data[key][0]
                 self.write_message(data[key][1])
@@ -293,13 +297,22 @@ class Table(client):
                 self.bid_complete = True                
                 self.write_message('Bidding Complete', delay_time=0)
                 msg = 'Trump: {}, Partner: {}'.format(data["bid_complete"]["trump"],
-                                                      data["bid_complete"]["partner"])
+                                                    data["bid_complete"]["partner"])
                 self.write_message(msg, line=1, delay_time=1)
                 # Set the roles of the players
                 self.players[data["bid_complete"]["declarer"]].role = PlayerRole.DECLARER
                 self.display_current_player(data["bid_complete"]["declarer"])
+            elif key == "play_card":
+                if data["play_card"]["player"] == self.server_player_no:
+                    self.require_input = True
+                else:
+                    pass
             else:
                 print("Unknown key from server: ", key)
+
+            print(not get_state or key == get_state)
+            if not get_state or key == get_state:
+                return
 
     def emit_call(self, output, **kwargs):
         pygame.event.post(pygame.event.Event(CALL_EVENT, call=output))
@@ -350,9 +363,9 @@ class Table(client):
         # TODO: Adjust the timing of sleep
         if self.game_state == GameState.DEALING:
             self.write_message("Waiting for shuffle...")
-            self.process_server_response()
+            self.process_server_response("deals")
             self.write_message("Confirming reshuffle...")
-            self.process_server_response()
+            self.process_server_response("shuffle")
 
             if len(self.reshuffling_players) == 0:
                 self.write_message('No Reshuffle needed!')
@@ -361,8 +374,7 @@ class Table(client):
             else:
                 if self.server_player_no in self.reshuffling_players:
                     if not self.reshuffle_asked:
-                        self.process_server_response()
-                    print("LOL")
+                        self.process_server_response("req_reshuff")
                     self.game_state = GameState.POINT_CHECK
                 else:
                     self.game_state = GameState.POINT_CHECK_WAIT
@@ -379,7 +391,7 @@ class Table(client):
             self.game_state = GameState.POINT_CHECK_WAIT
 
         elif self.game_state == GameState.POINT_CHECK_WAIT:
-            self.process_server_response()
+            self.process_server_response("reshuff_res")
 
             if self.reshuffle_result:
                 self.game_state = GameState.ENDING
@@ -390,7 +402,7 @@ class Table(client):
         
         elif self.game_state == GameState.BIDDING:
             if not self.require_input:
-                self.process_server_response()
+                self.process_server_response("bid")
             if self.require_input:
                 player_bid, msg = self.players[self.server_player_no].make_decision(self.game_state, self.substate, game_events)
                 if msg:
@@ -398,9 +410,9 @@ class Table(client):
                 if player_bid < 0:
                     return 0          
                 self.send_string(str(player_bid))
-                self.process_server_response()
-                self.require_input = False
-            if self.bid_complete:
+                self.process_server_response("bid_res")
+            if self.substate == 1:
+                self.process_server_response("bid_complete")
                 self.calling_panel.visible = False
                 self.update_table.emit()
                 self.game_state = GameState.PLAYING
@@ -422,7 +434,8 @@ class Table(client):
                     break
             if ready:
                 print('Waiting for reply...', flush=True)
-                self.process_server_response()
+                self.process_server_response("table")
+                self.game_state = GameState.DEALING
 
     
     def display_bidding(self, bid_data):
@@ -435,112 +448,6 @@ class Table(client):
         self.update_player_bid(bid_data["previous"][0], bid_data["previous"][1], update_now=False)
         msg = 'Bid Leader: Player {0:d}'.format(bid_data["leader"])
         self.write_message(msg, line=2, delay_time=0.5)
-
-    def start_bidding(self, game_events):
-        """
-        The bidding procedure. Flag up if player input required
-        :return: Whether bidding is completed
-        """
-        # Highest bid: 7 NoTrump. No further check required
-        if self.passes < NUM_OF_PLAYERS - 1 and self.table_status["bid"] < 75:
-            if not self.require_player_input:
-                if not self.players[self.current_player].AI:
-                    self.require_player_input = True
-                    if not self.terminal_play:
-                        self.calling_panel.visible = True
-                        self.update_table.emit()
-                    return False
-                else:
-                    player_bid = self.players[self.current_player].make_decision(self.game_state, 0)
-            else:
-                player_bid, msg = self.players[self.current_player].make_decision(self.game_state, 0, game_events)
-                if msg:
-                    self.write_message(msg, delay_time=1, update_now=True)
-                if player_bid < 0:
-                    return False
-                self.require_player_input = False
-                self.write_message("", delay_time=0, update_now=False)
-                if not self.terminal_play:
-                    self.calling_panel.visible = False
-                    self.update_table.emit()
-            if not player_bid:
-                if not self.first_player:  # Starting bidder pass do not count at the start
-                    self.passes += 1
-            else:
-                self.table_status["bid"] = player_bid
-                self.passes = 0
-                msg = "Current Bid: {0:d} {1:s}".format(self.table_status["bid"] // 10,
-                                                        cards.get_suit_string(self.table_status["bid"] % 10))
-                self.write_message(msg, line=1, update_now=False)
-                msg = 'Bid Leader: Player {0:d}'.format(self.current_player)
-                self.write_message(msg, line=2, update_now=True)
-
-            if self.first_player:
-                self.first_player = False
-                if player_bid:
-                    self.update_player_bid(self.current_player, player_bid, update_now=False)
-            else:
-                self.update_player_bid(self.current_player, player_bid, update_now=False)
-
-            if self.table_status["bid"] < 75:
-                self.current_player += 1
-                self.current_player %= NUM_OF_PLAYERS
-            self.display_current_player(self.current_player)
-
-            time.sleep(0.5)
-            if self.passes == NUM_OF_PLAYERS - 1 or self.table_status["bid"] == 75:
-                if not self.terminal_play:
-                    self.calling_panel.cancel_button.visible = False
-                    self.calling_panel.change_lists_elements(['2','3','4','5','6','7','8','9','10','J','Q','K','A'],
-                                                             ['Clubs', 'Diamonds', 'Hearts', 'Spades'])
-            return False
-        else:
-            if not self.require_player_input:
-                self.write_message("Player {0:d} is the bid winner!".format(self.current_player), delay_time=1)
-                msg = "Player {0:d} is calling a partner...".format(self.current_player)
-                self.write_message(msg, delay_time=1)
-                self.display_current_player(self.current_player)
-                if not self.players[self.current_player].AI:
-                    self.require_player_input = True
-                    if not self.terminal_play:
-                        self.calling_panel.visible = True
-                        self.update_table.emit()
-                    return False
-                else:
-                    # Ask for the partner card
-                    self.table_status["partner"] = self.players[self.current_player].make_decision(self.game_state, 1)
-            else:
-                partner, msg = self.players[self.current_player].make_decision(self.game_state, 1, game_events)
-                if msg:
-                    self.write_message(msg, delay_time=0, update_now=True)
-
-                if not partner:
-                    return False
-
-                self.table_status["partner"] = partner
-                self.require_player_input = False
-                if not self.terminal_play:
-                    self.calling_panel.visible = False
-                    self.update_table.emit()
-
-            # Setup the table status before the play starts
-            self.table_status['partner reveal'] = False
-            self.table_status["trump suit"] = self.table_status["bid"] % 10
-            self.table_status["trump broken"] = False
-            self.table_status['played cards'] = [0, 0, 0, 0]
-            if self.table_status['trump suit'] == 5:
-                self.table_status["leading player"] = self.current_player
-            else:
-                self.table_status["leading player"] = (self.current_player + 1) % NUM_OF_PLAYERS
-            self.table_status['defender']['target'] = self.table_status["bid"] // 10 + 6
-            self.table_status['attacker']['target'] = 14 - self.table_status['defender']['target']
-
-
-            self.write_message('Bidding Complete', delay_time=0)
-            msg = 'Trump: {1:s}, Partner: {0:s}'.format(cards.get_card_string(self.table_status["partner"]),
-                                                        cards.get_suit_string(self.table_status['trump suit']))
-            self.write_message(msg, line=1, delay_time=1)
-            return True
 
     def play_a_round(self, game_events):
         """

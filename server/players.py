@@ -56,7 +56,7 @@ class Player():
         if game_state == GameState.PLAYING:
             if self.AI:
                 play = self.AI.make_a_play(sub_state)
-                [_, pos] = self.check_card_in(play)
+                _, pos = self.check_card_in(play)
                 return self.remove_card(pos)
             return self.make_a_play(sub_state, game_events=game_events)
 
@@ -123,7 +123,7 @@ class Player():
                 valid = self.check_for_valid_plays(play, substate == 0)
 
                 if valid:
-                    [_, pos] = self.check_card_in(play)
+                    _, pos = self.check_card_in(play)
                     return self.remove_card(pos), msg
 
                 print("Invalid play")
@@ -132,7 +132,7 @@ class Player():
         pass
 
     def check_card_in(self, card):
-        return card in self.cards
+        return card in self.cards, self.cards.index(card)
 
     def check_for_valid_plays(self, card, leading):
         """
@@ -141,7 +141,8 @@ class Player():
         :param leading: bool
         :return:
         """
-        if not self.check_card_in(card):
+        valid, _ = self.check_card_in(card)
+        if not valid:
             return False
         card_suit = cards.get_card_suit(card)
         if leading:

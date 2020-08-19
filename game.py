@@ -52,7 +52,7 @@ class GameScreen(view.PygView):
                 if not connected:
                     connected = self.table.connect()
                     if connected:
-                        self.table.process_server_response()
+                        self.table.process_server_response(None)
                 else:
                     if (self.table.continue_game(all_events)  == 2):
                         input("Input any key to continue")
